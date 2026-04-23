@@ -4,8 +4,9 @@ import SwiftUI
 struct HarmonyMirrorApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("HarmonyMirror v2")
-                .frame(width: 400, height: 300)
+            ContentView()
         }
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 400, height: 700)
     }
 }
