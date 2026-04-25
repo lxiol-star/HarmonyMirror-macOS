@@ -11,6 +11,7 @@ struct MirrorWindow: View {
     @State private var hasTriggeredSystemPullDown = false
     @State private var pendingTouchDownTask: Task<Void, Never>?
     @State private var window: NSWindow?
+    @State private var isFullScreen = false
     @State private var lastAutoResizeSize: CGSize?
     @State private var manualVideoScale: CGFloat?
     private let dragThreshold: CGFloat = 5
@@ -209,6 +210,17 @@ struct MirrorWindow: View {
         .background(WindowAccessor { window in
             self.window = window
             resizeWindowIfNeeded()
+        } onEnterFullScreen: { window in
+            isFullScreen = true
+            manualVideoScale = nil
+            lastAutoResizeSize = nil
+            resizeWindowIfNeeded(force: true, anchor: .top)
+            window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
+        } onExitFullScreen: { window in
+            isFullScreen = false
+            lastAutoResizeSize = nil
+            resizeWindowIfNeeded(force: true, anchor: .top)
+            window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
         })
         .onChange(of: service.screenWidth) { _, _ in
             lastAutoResizeSize = nil
@@ -266,14 +278,19 @@ struct MirrorWindow: View {
     }
 
     private func videoLimits(for window: NSWindow?) -> (maxWidth: CGFloat, maxHeight: CGFloat) {
-        let visibleFrame = window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        let baseFrame: CGRect
+        if isFullScreen {
+            baseFrame = window?.screen?.frame ?? NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        } else {
+            baseFrame = window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+        }
         let chromeHeight = max(0, (window?.frame.height ?? 0) - (window?.contentLayoutRect.height ?? 0))
         let maxContentHeight = max(
             service.preferredMinWindowSize.height,
-            visibleFrame.height - chromeHeight - windowMargin
+            baseFrame.height - chromeHeight - windowMargin
         )
         return (
-            maxWidth: max(320, visibleFrame.width * 0.96),
+            maxWidth: max(320, baseFrame.width * 0.96),
             maxHeight: max(280, maxContentHeight - toolbarHeight - statusHeight)
         )
     }
@@ -343,6 +360,11 @@ struct MirrorWindow: View {
         let current = window.contentLayoutRect.size
         configureResizeConstraints(for: window, target: target)
 
+        if isFullScreen {
+            lastAutoResizeSize = target
+            return
+        }
+
         guard force || abs(current.width - target.width) > 8 || abs(current.height - target.height) > 8 else {
             lastAutoResizeSize = current
             return
@@ -369,6 +391,7 @@ struct MirrorWindow: View {
     private func configureResizeConstraints(for window: NSWindow, target: CGSize) {
         window.minSize = service.preferredMinWindowSize
         window.contentAspectRatio = target
+        window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
     }
 
     private func clamp(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
@@ -378,22 +401,66 @@ struct MirrorWindow: View {
 
 private struct WindowAccessor: NSViewRepresentable {
     let onWindowAvailable: (NSWindow) -> Void
+    let onEnterFullScreen: (NSWindow) -> Void
+    let onExitFullScreen: (NSWindow) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onEnterFullScreen: onEnterFullScreen, onExitFullScreen: onExitFullScreen)
+    }
 
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
-            if let window = view.window {
-                onWindowAvailable(window)
-            }
+            context.coordinator.attachIfNeeded(to: view.window, onWindowAvailable: onWindowAvailable)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
-            if let window = nsView.window {
-                onWindowAvailable(window)
-            }
+            context.coordinator.attachIfNeeded(to: nsView.window, onWindowAvailable: onWindowAvailable)
+        }
+    }
+
+    final class Coordinator {
+        private let onEnterFullScreen: (NSWindow) -> Void
+        private let onExitFullScreen: (NSWindow) -> Void
+        private weak var observedWindow: NSWindow?
+        private var observers: [NSObjectProtocol] = []
+
+        init(onEnterFullScreen: @escaping (NSWindow) -> Void, onExitFullScreen: @escaping (NSWindow) -> Void) {
+            self.onEnterFullScreen = onEnterFullScreen
+            self.onExitFullScreen = onExitFullScreen
+        }
+
+        deinit {
+            removeObservers()
+        }
+
+        func attachIfNeeded(to window: NSWindow?, onWindowAvailable: (NSWindow) -> Void) {
+            guard let window else { return }
+            guard observedWindow !== window else { return }
+
+            removeObservers()
+            observedWindow = window
+            onWindowAvailable(window)
+            window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
+
+            let center = NotificationCenter.default
+            observers.append(center.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: window, queue: .main) { [weak self] note in
+                guard let window = note.object as? NSWindow else { return }
+                self?.onEnterFullScreen(window)
+            })
+            observers.append(center.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { [weak self] note in
+                guard let window = note.object as? NSWindow else { return }
+                self?.onExitFullScreen(window)
+            })
+        }
+
+        private func removeObservers() {
+            let center = NotificationCenter.default
+            observers.forEach(center.removeObserver)
+            observers.removeAll()
         }
     }
 }
