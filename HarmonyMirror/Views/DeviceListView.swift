@@ -3,6 +3,10 @@ import SwiftUI
 struct DeviceListView: View {
     @ObservedObject var discovery: DeviceDiscovery
     let onConnect: (HarmonyDevice) -> Void
+    @State private var wifiHost = ""
+    @State private var wifiStatus = ""
+    @State private var isWiFiBusy = false
+    @State private var didAutoRecoverWiFi = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,6 +21,56 @@ struct DeviceListView: View {
                 .help("刷新")
             }
             .padding()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    TextField("设备 IP 或 IP:端口", text: $wifiHost)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit {
+                            Task { await connectWiFi() }
+                        }
+
+                    Button {
+                        Task { await connectWiFi() }
+                    } label: {
+                        Label(isWiFiBusy ? "连接中..." : "连接 Wi-Fi", systemImage: "wifi")
+                    }
+                    .disabled(isWiFiBusy || wifiHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .layoutPriority(1)
+                }
+
+                HStack(spacing: 8) {
+                    Spacer()
+                    Button {
+                        Task { await enableWiFiDebug() }
+                    } label: {
+                        Label(isWiFiBusy ? "处理中..." : "开启无线调试", systemImage: "antenna.radiowaves.left.and.right")
+                    }
+                    .controlSize(.small)
+                    .disabled(isWiFiBusy || usbDevice == nil)
+                }
+
+                if !wifiStatus.isEmpty {
+                    Text(wifiStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                if !discovery.discoveryStatus.isEmpty {
+                    HStack(spacing: 6) {
+                        if discovery.isScanningLAN {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(discovery.discoveryStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
 
             if discovery.hdcCommand.hdcPath == nil {
                 VStack(spacing: 8) {
@@ -33,12 +87,12 @@ struct DeviceListView: View {
                 .padding(40)
             } else if discovery.devices.isEmpty {
                 VStack(spacing: 8) {
-                    Image(systemName: "iphone.slash")
+                    Image(systemName: "display.trianglebadge.exclamationmark")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
                     Text("未发现设备")
                         .font(.headline)
-                    Text("请通过 USB 连接鸿蒙手机并开启开发者模式")
+                    Text("请通过 USB 连接鸿蒙手机或平板，或保持设备与 Mac 在同一局域网并开启无线调试")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -58,8 +112,65 @@ struct DeviceListView: View {
             }
             Spacer()
         }
-        .frame(minWidth: 350, minHeight: 400)
+        .frame(minWidth: 390, minHeight: 430)
         .onAppear { discovery.startScanning() }
         .onDisappear { discovery.stopScanning() }
+        .onChange(of: discovery.devices) { _, devices in
+            guard devices.isEmpty, !wifiHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                didAutoRecoverWiFi = false
+                return
+            }
+            guard !didAutoRecoverWiFi, !isWiFiBusy else { return }
+            didAutoRecoverWiFi = true
+            Task { await connectWiFi(reason: "正在恢复 Wi-Fi 连接") }
+        }
+    }
+
+    private func connectWiFi(reason: String? = nil) async {
+        let host = wifiHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !host.isEmpty, !isWiFiBusy else { return }
+        isWiFiBusy = true
+        wifiStatus = "\(reason ?? "正在连接") \(HDCCommand.wifiTarget(from: host)) ..."
+        defer { isWiFiBusy = false }
+        do {
+            let result = try await discovery.hdcCommand.connectWiFi(host: host)
+            wifiStatus = result.isEmpty ? "Wi-Fi 连接命令已发送" : result
+            discovery.rememberWiFiTarget(host)
+            await discovery.poll()
+        } catch {
+            wifiStatus = "Wi-Fi 连接失败：\(error.localizedDescription)"
+        }
+    }
+
+    private func enableWiFiDebug() async {
+        guard let device = usbDevice, !isWiFiBusy else { return }
+        isWiFiBusy = true
+        wifiStatus = "正在为 \(device.serial) 开启无线调试端口 \(AppConstants.wifiDebugPorts.first ?? 10178) ..."
+        defer { isWiFiBusy = false }
+        do {
+            let result = try await discovery.hdcCommand.enableWiFiDebug(serial: device.serial)
+            if let ip = await readDeviceWiFiAddress(serial: device.serial), !ip.isEmpty {
+                wifiHost = ip
+                wifiStatus = "已开启无线调试端口 \(AppConstants.wifiDebugPorts.first ?? 10178)，设备 IP：\(ip)"
+            } else {
+                wifiStatus = result.isEmpty ? "已开启无线调试端口 \(AppConstants.wifiDebugPorts.first ?? 10178)" : result
+            }
+        } catch {
+            wifiStatus = "开启无线调试失败：\(error.localizedDescription)"
+        }
+    }
+
+    private var usbDevice: HarmonyDevice? {
+        discovery.devices.first { $0.connectionKind == .usb || !$0.serial.contains(":") }
+    }
+
+    private func readDeviceWiFiAddress(serial: String) async -> String? {
+        for _ in 0..<5 {
+            if let ip = try? await discovery.hdcCommand.deviceWiFiAddress(serial: serial) {
+                return ip
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+        return nil
     }
 }

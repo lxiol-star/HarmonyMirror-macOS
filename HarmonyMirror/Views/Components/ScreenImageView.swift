@@ -11,6 +11,10 @@ struct ScreenImageView: NSViewRepresentable {
     func makeNSView(context: Context) -> ScreenNSView {
         let view = ScreenNSView()
         view.imageScaling = .scaleProportionallyUpOrDown
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .vertical)
         view.onMouseDown = onMouseDown
         view.onMouseUp = onMouseUp
         view.onMouseDragged = onMouseDragged
@@ -32,10 +36,10 @@ final class ScreenNSView: NSImageView {
     var onMouseUp: ((CGPoint, CGSize) -> Void)?
     var onMouseDragged: ((CGPoint, CGSize) -> Void)?
     var onRightClick: (() -> Void)?
-    private var dragStart: CGPoint?
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+    override var intrinsicContentSize: NSSize { NSSize(width: -1, height: -1) }
 
     private func flipped(_ event: NSEvent) -> CGPoint {
         let p = convert(event.locationInWindow, from: nil)
@@ -43,9 +47,7 @@ final class ScreenNSView: NSImageView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        let p = flipped(event)
-        dragStart = p
-        onMouseDown?(p, bounds.size)
+        onMouseDown?(flipped(event), bounds.size)
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -53,9 +55,7 @@ final class ScreenNSView: NSImageView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        let p = flipped(event)
-        onMouseUp?(p, bounds.size)
-        dragStart = nil
+        onMouseUp?(flipped(event), bounds.size)
     }
 
     override func rightMouseDown(with event: NSEvent) {
