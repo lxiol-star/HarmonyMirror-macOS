@@ -35,6 +35,23 @@ final class MirrorService: ObservableObject {
 
     init(hdcCommand: HDCCommand) {
         self.hdcCommand = hdcCommand
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationWillTerminate),
+            name: NSApplication.willTerminateNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func applicationWillTerminate() {
+        orientationMonitorTask?.cancel()
+        orientationMonitorTask = nil
+        cleanupStream()
+        terminateBridge()
     }
 
     func startMirroring(device: HarmonyDevice) async {
@@ -167,6 +184,8 @@ final class MirrorService: ObservableObject {
             "--grpc-port", "\(grpcPort)",
             "--bridge-port", "\(bridgePort)",
             "--remote-port", "8710",
+            "--parent-pid", "\(ProcessInfo.processInfo.processIdentifier)",
+            "--idle-timeout", "90",
             "--skip-device-setup"
         ]
         process.terminationHandler = { [weak self] _ in

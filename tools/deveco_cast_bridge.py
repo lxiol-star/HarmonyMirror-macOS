@@ -35,6 +35,8 @@ clients_lock = threading.Lock()
 FRAME_BUFFER_SIZE = 60
 frame_buffer: collections.deque[bytes] = collections.deque(maxlen=FRAME_BUFFER_SIZE)
 frame_buffer_lock = threading.Lock()
+last_client_activity = time.monotonic()
+last_client_activity_lock = threading.Lock()
 
 
 def log(message: str) -> None:
@@ -45,6 +47,27 @@ def log(message: str) -> None:
     except Exception:
         pass
     print(message, flush=True)
+
+
+def mark_client_activity() -> None:
+    global last_client_activity
+    with last_client_activity_lock:
+        last_client_activity = time.monotonic()
+
+
+def seconds_since_client_activity() -> float:
+    with last_client_activity_lock:
+        return time.monotonic() - last_client_activity
+
+
+def parent_is_alive(parent_pid: int | None) -> bool:
+    if not parent_pid:
+        return True
+    try:
+        os.kill(parent_pid, 0)
+        return True
+    except OSError:
+        return False
 
 
 def disable_local_proxy_for_grpc() -> None:
@@ -235,6 +258,7 @@ def broadcast_frame(frame: bytes) -> None:
             except Exception:
                 pass
         if dead:
+            mark_client_activity()
             log(f"removed {len(dead)} dead client(s)")
 
 
@@ -432,6 +456,7 @@ def accept_clients(server: socket.socket, bridge_port: int) -> None:
 
             with clients_lock:
                 clients.append(client)
+            mark_client_activity()
             log(f"client {addr} ready ({len(buffered)} buffered frames flushed)")
         except OSError as exc:
             log(f"accept error: {exc}")
@@ -501,6 +526,15 @@ def serve(args: argparse.Namespace) -> None:
     try:
         while True:
             time.sleep(1)
+            if not parent_is_alive(args.parent_pid):
+                log(f"parent process {args.parent_pid} is gone; exiting bridge")
+                shutdown()
+            if args.idle_timeout > 0:
+                with clients_lock:
+                    has_clients = len(clients) > 0
+                if not has_clients and seconds_since_client_activity() > args.idle_timeout:
+                    log(f"no clients for {args.idle_timeout:.0f}s; exiting bridge")
+                    shutdown()
             if not grpc_thread.is_alive():
                 log("gRPC thread died, restarting...")
                 grpc_thread = threading.Thread(
@@ -524,6 +558,8 @@ def main() -> None:
     parser.add_argument("--bridge-port", type=int, default=18180)
     parser.add_argument("--remote-port", type=int, default=8710)
     parser.add_argument("--socket-name", default=CASTING_SOCKET)
+    parser.add_argument("--parent-pid", type=int)
+    parser.add_argument("--idle-timeout", type=float, default=0)
     parser.add_argument("--skip-device-setup", action="store_true")
     args = parser.parse_args()
     serve(args)
