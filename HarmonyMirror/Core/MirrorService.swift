@@ -24,6 +24,7 @@ final class MirrorService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let grpcPort = 9500 + Int(ProcessInfo.processInfo.processIdentifier % 400)
     private let bridgePort = 18000 + Int(ProcessInfo.processInfo.processIdentifier % 800)
+    private let agentPort = 19000 + Int(ProcessInfo.processInfo.processIdentifier % 800)
 
     weak var videoDisplayLayer: AVSampleBufferDisplayLayer? {
         didSet {
@@ -92,6 +93,7 @@ final class MirrorService: ObservableObject {
             injector.screenHeight = screenHeight
         }
         self.inputInjector = injector
+        await configureAgentInput(serial: serial, injector: injector)
 
         // Reuse bridge if it's already running for the same device
         let reuseBridge = (lastBridgeSerial == serial && bridgeProcess?.isRunning == true)
@@ -248,6 +250,27 @@ final class MirrorService: ObservableObject {
         Log.mirror.info("Casting service prepared for \(serial), grpcPort=\(self.grpcPort)")
     }
 
+    private func configureAgentInput(serial: String, injector: InputInjector) async {
+        let local = "tcp:\(agentPort)"
+        let remote = "tcp:\(AppConstants.agentRemotePort)"
+        await hdcCommand.removeForward(local: local, remote: remote, serial: serial)
+        do {
+            _ = try await hdcCommand.forward(local: local, remote: remote, serial: serial)
+            let client = AgentSocketClient()
+            injector.setAgentClient(client)
+            client.connect(port: UInt16(agentPort)) {
+                Log.input.info("HarmonyAgent input connected for \(serial)")
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            if !client.isConnected {
+                Log.input.info("HarmonyAgent input unavailable for \(serial); falling back to hdc input")
+            }
+        } catch {
+            injector.setAgentClient(nil)
+            Log.input.info("HarmonyAgent input forward unavailable for \(serial): \(error.localizedDescription)")
+        }
+    }
+
     private func isPortOpen(port: Int) -> Bool {
         let sock = socket(AF_INET, SOCK_STREAM, 0)
         guard sock >= 0 else { return false }
@@ -295,6 +318,7 @@ final class MirrorService: ObservableObject {
         streamReceiver = nil
         h264VideoLayer?.flushAndRemoveImage()
         h264VideoLayer = nil
+        inputInjector?.setAgentClient(nil)
         inputInjector = nil
         cancellables.removeAll()
     }

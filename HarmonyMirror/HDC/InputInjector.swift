@@ -46,10 +46,16 @@ final class InputInjector {
     private var lastTouchMoveTime: Date = .distantPast
     private let touchMoveMinInterval: TimeInterval = 1.0 / 10.0  // throttle to ~10Hz to reduce hdc shell backlog
     private let statusBarZoneFraction: CGFloat = 0.06  // top 6% of screen height = status bar zone
+    private var agentClient: AgentSocketClient?
 
     init(hdcCommand: HDCCommand, serial: String) {
         self.hdcCommand = hdcCommand
         self.serial = serial
+    }
+
+    func setAgentClient(_ client: AgentSocketClient?) {
+        agentClient?.disconnect()
+        agentClient = client
     }
 
     func click(windowPoint: CGPoint, windowSize: CGSize) {
@@ -63,6 +69,27 @@ final class InputInjector {
         let distance = hypot(CGFloat(ep.x - sp.x), CGFloat(ep.y - sp.y))
         let durationMs = max(100, min(500, Int(distance / 2)))
         enqueue(.swipe(x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, durationMs: durationMs))
+    }
+
+    func scroll(windowPoint: CGPoint, windowSize: CGSize, deltaX: CGFloat, deltaY: CGFloat) {
+        guard abs(deltaX) >= 1 || abs(deltaY) >= 1,
+              let start = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
+
+        let scaleX = CGFloat(screenWidth) / max(windowSize.width, 1)
+        let scaleY = CGFloat(screenHeight) / max(windowSize.height, 1)
+        let multiplier: CGFloat = 4
+        let endX = max(0, min(screenWidth - 1, start.x - Int(deltaX * scaleX * multiplier)))
+        let endY = max(0, min(screenHeight - 1, start.y - Int(deltaY * scaleY * multiplier)))
+        let distance = hypot(CGFloat(endX - start.x), CGFloat(endY - start.y))
+        guard distance >= 8 else { return }
+
+        enqueue(.swipe(
+            x1: start.x,
+            y1: start.y,
+            x2: endX,
+            y2: endY,
+            durationMs: max(80, min(220, Int(distance / 3)))
+        ))
     }
 
     func back() {
@@ -195,6 +222,9 @@ final class InputInjector {
             await inputQueue.enqueue(action) { [weak self] action in
                 guard let self else { return }
                 do {
+                    if await self.executeWithAgentIfAvailable(action) {
+                        return
+                    }
                     switch action {
                     case .click(let x, let y):
                         try await self.hdcCommand.uinputClick(x: x, y: y, serial: self.serial)
@@ -220,6 +250,50 @@ final class InputInjector {
                 }
             }
         }
+    }
+
+    private func executeWithAgentIfAvailable(_ action: InputAction) async -> Bool {
+        guard let agentClient, agentClient.isConnected else { return false }
+
+        switch action {
+        case .click(let x, let y):
+            agentClient.sendTouch(.touchDown, x: normalizedX(x), y: normalizedY(y))
+            try? await Task.sleep(nanoseconds: 35_000_000)
+            agentClient.sendTouch(.touchUp, x: normalizedX(x), y: normalizedY(y))
+        case .swipe(let x1, let y1, let x2, let y2, let durationMs):
+            agentClient.sendTouch(.touchDown, x: normalizedX(x1), y: normalizedY(y1))
+            try? await Task.sleep(nanoseconds: UInt64(max(20, durationMs / 2)) * 1_000_000)
+            agentClient.sendTouch(.touchMove, x: normalizedX(x2), y: normalizedY(y2))
+            try? await Task.sleep(nanoseconds: UInt64(max(20, durationMs / 2)) * 1_000_000)
+            agentClient.sendTouch(.touchUp, x: normalizedX(x2), y: normalizedY(y2))
+        case .touchDown(let x, let y):
+            agentClient.sendTouch(.touchDown, x: normalizedX(x), y: normalizedY(y))
+        case .touchUp(let x, let y):
+            agentClient.sendTouch(.touchUp, x: normalizedX(x), y: normalizedY(y))
+        case .touchMove(_, _, let x2, let y2, _):
+            agentClient.sendTouch(.touchMove, x: normalizedX(x2), y: normalizedY(y2))
+        case .uinputKey(let keyCode):
+            guard (0...65_535).contains(keyCode) else { return false }
+            agentClient.sendKey(UInt16(keyCode))
+        case .uitestKey:
+            return false
+        }
+        return true
+    }
+
+    private func normalizedX(_ x: Int) -> UInt16 {
+        normalized(value: x, maxValue: screenWidth)
+    }
+
+    private func normalizedY(_ y: Int) -> UInt16 {
+        normalized(value: y, maxValue: screenHeight)
+    }
+
+    private func normalized(value: Int, maxValue: Int) -> UInt16 {
+        guard maxValue > 1 else { return 0 }
+        let clamped = max(0, min(maxValue - 1, value))
+        let normalized = Double(clamped) / Double(maxValue - 1) * Double(UInt16.max)
+        return UInt16(max(0, min(Int(UInt16.max), Int(normalized.rounded()))))
     }
 
     private func mapToDevice(windowPoint: CGPoint, windowSize: CGSize) -> (x: Int, y: Int)? {

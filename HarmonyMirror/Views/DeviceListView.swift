@@ -6,6 +6,8 @@ struct DeviceListView: View {
     @State private var wifiHost = ""
     @State private var wifiStatus = ""
     @State private var isWiFiBusy = false
+    @State private var isDiagnosingNetwork = false
+    @State private var networkDiagnosticText = ""
     @State private var didAutoRecoverWiFi = false
 
     var body: some View {
@@ -37,6 +39,14 @@ struct DeviceListView: View {
                     }
                     .disabled(isWiFiBusy || wifiHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .layoutPriority(1)
+
+                    Button {
+                        Task { await diagnoseNetwork() }
+                    } label: {
+                        Image(systemName: "network")
+                    }
+                    .disabled(isDiagnosingNetwork)
+                    .help("网络诊断")
                 }
 
                 HStack(spacing: 8) {
@@ -55,6 +65,12 @@ struct DeviceListView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                }
+                if !networkDiagnosticText.isEmpty {
+                    Text(networkDiagnosticText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(4)
                 }
                 if !discovery.discoveryStatus.isEmpty {
                     HStack(spacing: 6) {
@@ -158,6 +174,15 @@ struct DeviceListView: View {
         } catch {
             wifiStatus = "开启无线调试失败：\(error.localizedDescription)"
         }
+    }
+
+    private func diagnoseNetwork() async {
+        guard !isDiagnosingNetwork else { return }
+        isDiagnosingNetwork = true
+        networkDiagnosticText = "正在诊断网络..."
+        defer { isDiagnosingNetwork = false }
+        let result = await NetworkDiagnostics.run(targetInput: wifiHost)
+        networkDiagnosticText = result.displayText
     }
 
     private var usbDevice: HarmonyDevice? {

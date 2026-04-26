@@ -13,6 +13,7 @@
 		361B99EFB92865B84B106369 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */; };
 		4DAA2A21C4F2C0590FBECCEF /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */; };
 		5A64C354AADD813F02AD521C /* VideoStreamReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08975328AC2F98FF1CC353A9 /* VideoStreamReceiver.swift */; };
+		5FADE725775DB6D338A32DE0 /* NetworkDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77543EFD6CB9F0BD8F7C5090 /* NetworkDiagnostics.swift */; };
 		602C38CF1AD717FC025C7C58 /* HarmonyMirrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */; };
 		625F11BD27D986B1E9CC83B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF591379C547FE87D3DD5E58 /* ContentView.swift */; };
 		6E1939C256810BF3863EC28B /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */; };
@@ -55,6 +56,7 @@
 		66E4C5FE08355A7ADF65C748 /* TCPStreamReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCPStreamReceiver.swift; sourceTree = "<group>"; };
 		70F2FDCD99BB63336A90FD17 /* HDCCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDCCommand.swift; sourceTree = "<group>"; };
 		729CCEBF87E22B4491094509 /* MirrorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorService.swift; sourceTree = "<group>"; };
+		77543EFD6CB9F0BD8F7C5090 /* NetworkDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDiagnostics.swift; sourceTree = "<group>"; };
 		78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
 		7D3F96E0A6717352F999C853 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 		7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscovery.swift; sourceTree = "<group>"; };
@@ -159,6 +161,7 @@
 				7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */,
 				70F2FDCD99BB63336A90FD17 /* HDCCommand.swift */,
 				E656274AA61D22A0D4BE4083 /* InputInjector.swift */,
+				77543EFD6CB9F0BD8F7C5090 /* NetworkDiagnostics.swift */,
 				78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */,
 			);
 			path = HDC;
@@ -313,6 +316,7 @@
 				ACD7EBC592E6E32E22E94729 /* MirrorService.swift in Sources */,
 				A8EE781FFB585D9B3F2DD17A /* MirrorWindow.swift in Sources */,
 				A99744003D1C122C592553B8 /* Models.swift in Sources */,
+				5FADE725775DB6D338A32DE0 /* NetworkDiagnostics.swift in Sources */,
 				4DAA2A21C4F2C0590FBECCEF /* ScreenCapture.swift in Sources */,
 				CB9683816EA9824731CE0C2A /* ScreenImageView.swift in Sources */,
 				194C1E8462B513F538804B64 /* TCPStreamReceiver.swift in Sources */,

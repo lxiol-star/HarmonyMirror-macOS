@@ -165,6 +165,18 @@ struct MirrorWindow: View {
                         },
                         onRightClick: {
                             service.inputInjector?.back()
+                        },
+                        onScroll: { point, size, deltaX, deltaY in
+                            service.inputInjector?.scroll(
+                                windowPoint: point,
+                                windowSize: size,
+                                deltaX: deltaX,
+                                deltaY: deltaY
+                            )
+                        },
+                        onMagnify: { magnification in
+                            let factor = max(0.75, min(1.25, 1 + magnification))
+                            resizeWindow(scale: currentVideoScale() * factor)
                         }
                     )
                     .frame(width: size.width, height: size.height)

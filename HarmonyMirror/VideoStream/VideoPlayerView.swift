@@ -7,6 +7,8 @@ struct VideoPlayerView: NSViewRepresentable {
     var onMouseUp: ((CGPoint, CGSize) -> Void)?
     var onMouseDragged: ((CGPoint, CGSize) -> Void)?
     var onRightClick: (() -> Void)?
+    var onScroll: ((CGPoint, CGSize, CGFloat, CGFloat) -> Void)?
+    var onMagnify: ((CGFloat) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -34,6 +36,8 @@ struct VideoPlayerView: NSViewRepresentable {
         overlay.onMouseUp = onMouseUp
         overlay.onMouseDragged = onMouseDragged
         overlay.onRightClick = onRightClick
+        overlay.onScroll = onScroll
+        overlay.onMagnify = onMagnify
         container.addSubview(overlay)
         NSLayoutConstraint.activate([
             overlay.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -51,6 +55,8 @@ struct VideoPlayerView: NSViewRepresentable {
         context.coordinator.overlay?.onMouseUp = onMouseUp
         context.coordinator.overlay?.onMouseDragged = onMouseDragged
         context.coordinator.overlay?.onRightClick = onRightClick
+        context.coordinator.overlay?.onScroll = onScroll
+        context.coordinator.overlay?.onMagnify = onMagnify
     }
 
     class Coordinator {
@@ -65,6 +71,8 @@ final class TouchOverlayView: NSView {
     var onMouseUp: ((CGPoint, CGSize) -> Void)?
     var onMouseDragged: ((CGPoint, CGSize) -> Void)?
     var onRightClick: (() -> Void)?
+    var onScroll: ((CGPoint, CGSize, CGFloat, CGFloat) -> Void)?
+    var onMagnify: ((CGFloat) -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -88,5 +96,15 @@ final class TouchOverlayView: NSView {
 
     override func rightMouseDown(with event: NSEvent) {
         onRightClick?()
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        let dx = event.hasPreciseScrollingDeltas ? event.scrollingDeltaX : event.deltaX * 10
+        let dy = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.deltaY * 10
+        onScroll?(flipped(event), bounds.size, dx, dy)
+    }
+
+    override func magnify(with event: NSEvent) {
+        onMagnify?(event.magnification)
     }
 }
