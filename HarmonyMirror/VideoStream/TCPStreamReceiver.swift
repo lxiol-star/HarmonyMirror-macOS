@@ -11,6 +11,7 @@ final class TCPStreamReceiver: ObservableObject {
     private var lastFpsTime = Date()
     private var frameCount = 0
     private let stateQueue = DispatchQueue(label: "com.harmonymirror.tcpstate")
+    private var readBuffer = [UInt8]()
 
     func connect(host: String, port: Int) {
         disconnect()
@@ -98,34 +99,38 @@ final class TCPStreamReceiver: ObservableObject {
 
             try? Task.checkCancellation()
 
-            await MainActor.run {
-                self.onFrameReceived?(h264Data, pts, isKeyFrame)
-                self.frameCount += 1
-                let now = Date()
-                if now.timeIntervalSince(self.lastFpsTime) >= 1.0 {
-                    self.fps = self.frameCount
-                    self.frameCount = 0
-                    self.lastFpsTime = now
+            // Deliver frame on background thread (decoding also runs on background)
+            self.onFrameReceived?(h264Data, pts, isKeyFrame)
+
+            // Only update @Published properties on MainActor
+            self.frameCount += 1
+            let now = Date()
+            if now.timeIntervalSince(self.lastFpsTime) >= 1.0 {
+                let countedFrames = self.frameCount
+                self.frameCount = 0
+                self.lastFpsTime = now
+                await MainActor.run {
+                    self.fps = countedFrames
                 }
             }
         }
     }
 
     private func readExactly(socket: Int32, count: Int) -> Data? {
-        var data = Data()
-        data.reserveCapacity(count)
-        var remaining = count
+        // Reuse buffer across calls to reduce allocation pressure
+        if readBuffer.count < count {
+            readBuffer = [UInt8](repeating: 0, count: count)
+        }
 
-        while remaining > 0 {
-            var buffer = [UInt8](repeating: 0, count: remaining)
-            let bytesRead = recv(socket, &buffer, remaining, 0)
+        var totalRead = 0
+        while totalRead < count {
+            let bytesRead = recv(socket, &readBuffer[totalRead], count - totalRead, 0)
             if bytesRead <= 0 {
                 return nil
             }
-            data.append(buffer, count: bytesRead)
-            remaining -= bytesRead
+            totalRead += bytesRead
         }
 
-        return data
+        return Data(readBuffer.prefix(totalRead))
     }
 }

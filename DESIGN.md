@@ -121,17 +121,23 @@ hdc 命令行
 - 投屏窗口支持等比拖拽缩放，并在底部状态栏提供缩小、放大、适配窗口、占满屏幕四个控制按钮；底部缩放按钮触发的窗口变化固定底边，便于连续点击，设备横竖屏变化时会回到新方向的自动适配尺寸。
 - 左上角 macOS 原生全屏按钮已接入全屏状态监听，进入全屏后会按全屏屏幕重新计算窗口限制，退出后恢复普通可视区域适配。
 - macOS 端触控板手势已接入：双指滑动映射为投屏内滚动，两指张开/捏合映射为窗口缩放，和底部缩放按钮共享同一套缩放状态。
+- App 启动和 Dock 重新打开时会清理旧窗口 frame，并把窗口强制拉回主屏可见区域，避免多显示器/Spaces/上次全屏状态导致窗口落在屏幕外。
+- 新增自动化测试启动参数：`--connect <serial>`、`--connect-first`、`--exit-after <seconds>`。测试时通过 `open -n HarmonyMirror.app --args ...` 启动，可跳过 macOS 辅助功能点击设备卡片的不稳定路径。
 - 设备列表新增网络诊断按钮，可显示 Mac 当前 IPv4、默认网关、目标无线调试端口可达性，并给出同网段/热点/客户端隔离相关建议。
 - 连接开始时先读取 `Display ID: 0` 宽高，立即初始化窗口尺寸和输入坐标；设备列表刷新时也读取当前显示尺寸，用于提前显示横竖屏和分辨率。
-- 通知栏/控制中心按钮改为 `uitest uiInput swipe`。实测 `uinput -T` 从 `y=0` 下拉无法打开系统面板；`uitest uiInput swipe x 5 x 1189 600` 可稳定打开通知栏和控制中心。
+- 通知栏/控制中心按钮改为 `uitest uiInput swipe`。实测 `uinput -T` 从 `y=0` 下拉无法稳定打开系统面板；通知中心使用左上区域快速下拉，控制中心使用屏幕宽度约 95%、距离顶边约 2% 的右上区域慢速下拉，避免落入普通通知/服务页区域。
 - 投屏画面顶部状态栏区域向下拖动超过阈值后，会触发同一条 `uitest` 系统下拉路径。
 - 新增 HarmonyAgent Phase 1 原型：`agent/harmony_agent.c` 和 `HarmonyMirror/Agent/AgentSocketClient.swift`。当前作为低延迟输入通道基础，不替换现有可用输入链路。
 - macOS 输入链路已接入 HarmonyAgent 优先路径：启动投屏时尝试 `hdc fport tcp:<local> tcp:8711` 并连接 Agent；Agent 可用时普通触控/拖拽/滚动优先走 TCP 帧，失败或不可用时自动回退现有 hdc/uinput/uitest。
+- **HarmonyAgent Phase 2**：完整协议扩展、Agent 自动部署、安全屏幕实验支持。
+  - Agent 新增：`INPUT_PROP_DIRECT` 设备属性、`ABS_MT_PRESSURE`/`ABS_MT_TOUCH_MAJOR` 完整多点触控、PIN 码输入、`/dev/input/eventX` 直写模式、verbose 日志。
+  - Mac 端新增：Agent 二进制自动部署（`hdc file send` + `chmod +x` + 后台启动）、健康检查（15 秒 ping）、断线自动重连、连接状态回调。
+  - AgentSocketClient 新增：PONG 响应解析、定期 ping、pong 超时断线、多点触控 slot API、安全屏幕实验命令（`setProp`、`openDirectEvent`、`requestInfo`）。
 
 ## 实测结果（2026-04-26）
 
 - 手机 `10.1.2.224:10178`：`Display ID: 0` 为 `1316×2832`，桌面状态下左上区域下拉打开通知栏，右上区域下拉打开控制中心。
-- 平板 `192.168.18.188:10178`：`Display ID: 0` 为 `1600×2560`，可用于初始化竖屏窗口尺寸。
+- 平板 `192.168.18.188:10178`：`Display ID: 0` 为 `1600×2560`（竖屏）/`2560×1600`（横屏），可用于初始化窗口尺寸和横竖屏自动切换。
 - 锁屏状态下系统面板下拉仍受系统限制；需进入桌面后才能打开通知栏/控制中心。
 - `xcodebuild -project HarmonyMirror.xcodeproj -scheme HarmonyMirror -destination platform=macOS -derivedDataPath .build/DerivedData build` 通过。
 
@@ -308,6 +314,21 @@ startMirroring(device:)
 - 窗口大小根据设备分辨率自动适配
 - 手动拖拽调整窗口大小后不会被自动重置
 - 横竖屏切换时自动调整窗口比例
+- 启动/重新打开时窗口会回到主屏可见区域；多显示器和全屏 Space 切换后不依赖上次保存的不可见坐标
+
+### 自动化测试入口
+
+macOS 辅助功能坐标点击在多窗口、多 Space、外接屏或未授权状态下会出现窗口索引失效、点击落到其他应用的问题。当前自动测试优先使用启动参数直接连接设备：
+
+```shell
+open -n /Applications/HarmonyMirror.app --args --connect 192.168.18.188:10178 --exit-after 30
+open -n /Applications/HarmonyMirror.app --args --connect-first --exit-after 30
+```
+
+- `--connect <serial>`：连接指定 hdc target，支持 `IP:端口` 或 USB serial。
+- `--connect-first`：按 USB、平板、首个设备的优先级自动选择目标。
+- `--exit-after <seconds>`：用于 smoke test，连接后保持指定秒数再自动退出。
+- 测试验证以 `hdc shell uitest uiInput`、系统日志和截图为主，GUI 坐标点击只作为补充。
 
 ---
 
@@ -441,6 +462,19 @@ DSoftBus (分布式软总线)                hdc (调试桥接)
   - 双指滑动作为滚动输入
   - 双指张开 / 捏合用于缩放窗口或画面
   - 与底部缩放按钮共用状态，避免手势和按钮互相打架
+- [x] **macOS 窗口恢复与自动测试入口**
+  - 启动/重新打开时清理旧窗口 frame，并把窗口拉回主屏可见区域
+  - 支持 `--connect`、`--connect-first`、`--exit-after`，用于连接平板/手机做 smoke test
+
+- [x] **HarmonyAgent Phase 2 完整协议**
+  - [x] 完整多点触控（ABS_MT_PRESSURE、ABS_MT_TOUCH_MAJOR、独立 tracking ID）
+  - [x] INPUT_PROP_DIRECT 设备属性设置
+  - [x] /dev/input/eventX 直写模式
+  - [x] PIN 码输入命令
+  - [x] Agent 二进制自动部署（hdc file send + chmod +x + 后台启动）
+  - [x] 健康检查（ping/pong）和断线自动重连
+  - [x] 安全屏幕实验命令（setProp、openDirectEvent、requestInfo）
+  - [ ] 安全屏幕实测结果记录
 
 ### P1 — 待开发（短期，1-2 天）
 
@@ -571,20 +605,18 @@ HarmonyAgent 尝试突破安全窗口限制的三个层级（从易到难）：
 5. Mac 端新增 `AgentSocketClient`，发送 TouchFrame 测试 click/swipe
 6. **验收标准**：普通界面点击延迟 <5ms
 
-**Phase 2（3-5 天）：完整协议 + 安全屏幕实验**
-1. 实现多点触控（slot 管理）、KEY 事件
-2. 在锁屏界面测试触摸注入是否生效
-3. 如果被拒绝，尝试 `/dev/input/eventX` 直接写入
-4. 尝试不同的 uinput 设备属性组合
-5. **验收标准**：明确安全屏幕是否可操作，记录可行的权限提升路径
+**Phase 2（3-5 天）：完整协议 + 安全屏幕实验** — 代码已完成，待部署实测
+1. ~~实现多点触控（slot 管理）、KEY 事件~~ — 已完成：`ABS_MT_PRESSURE`、`ABS_MT_TOUCH_MAJOR`、独立 tracking ID
+2. ~~在锁屏界面测试触摸注入是否生效~~ — 代码已准备：Agent 支持 `/dev/input/eventX` 直写模式和 `INPUT_PROP_DIRECT` 属性
+3. ~~如果被拒绝，尝试 `/dev/input/eventX` 直接写入~~ — 已实现：`CMD_OPEN_EVENT` (0x11) 命令
+4. ~~尝试不同的 uinput 设备属性组合~~ — 已实现：`CMD_SET_PROP` (0x10) 命令
+5. **验收标准**：明确安全屏幕是否可操作，记录可行的权限提升路径 — 待实测
 
-**Phase 3（5-7 天）：视频流合并（可选）**
-1. Agent 直接读取 gRPC socket，TCP 转发 H.264 到 Mac
-2. 替代 Python bridge，减少一个进程
-3. 可在 Agent 内做帧分析（关键帧缓存、首帧加速）
-4. **验收标准**：去掉 Python 依赖，首帧延迟 <0.5s
-
-**Phase 4（可选）：DSoftBus 探索**
+**Phase 2 代码改动总结：**
+- `agent/harmony_agent.c`：新增 `INPUT_PROP_DIRECT`、完整多点触控、PIN 码输入、`/dev/input/eventX` 直写、verbose 模式 (`-v`)
+- `HarmonyMirror/Agent/AgentSocketClient.swift`：新增 PONG 解析、健康检查 ping/pong、连接状态回调、多点触控 slot API、安全屏幕实验命令
+- `HarmonyMirror/Core/MirrorService.swift`：新增 Agent 自动部署（`hdc file send` + `chmod +x` + 后台启动）、健康监测、断线自动重连
+- `HarmonyMirror/HDC/HDCCommand.swift`：新增 `fileSend` 方法
 1. 研究 OpenHarmony DSoftBus 开源代码（gitee.com/openharmony）
 2. 分析设备认证和加密握手协议
 3. 评估在 macOS 实现 DSoftBus 客户端的可行性

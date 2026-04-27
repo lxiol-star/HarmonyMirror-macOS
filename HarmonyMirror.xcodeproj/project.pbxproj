@@ -11,15 +11,15 @@
 		313E84654A1DE775DBAAC6A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B7F7D64A9D5B1392FEEA4FF /* Assets.xcassets */; };
 		3589E36D0BA58B202477252D /* H264VideoLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE833FD2BC1E2DFE8D3F47B /* H264VideoLayer.swift */; };
 		361B99EFB92865B84B106369 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */; };
+		47600D4D861BEA8A35B04325 /* AppLaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327482CE97EC6A53975676E3 /* AppLaunchOptions.swift */; };
 		4DAA2A21C4F2C0590FBECCEF /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */; };
-		5A64C354AADD813F02AD521C /* VideoStreamReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08975328AC2F98FF1CC353A9 /* VideoStreamReceiver.swift */; };
 		5FADE725775DB6D338A32DE0 /* NetworkDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77543EFD6CB9F0BD8F7C5090 /* NetworkDiagnostics.swift */; };
 		602C38CF1AD717FC025C7C58 /* HarmonyMirrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */; };
 		625F11BD27D986B1E9CC83B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF591379C547FE87D3DD5E58 /* ContentView.swift */; };
 		6E1939C256810BF3863EC28B /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */; };
-		71053DCF7841FB62A72AC606 /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D3F96E0A6717352F999C853 /* H264Decoder.swift */; };
 		716F25A665FA08A24F5583C6 /* DeviceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */; };
 		7FB884B2F8F21B808978D976 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E7B3033D99200FECDD6C1 /* VideoPlayerView.swift */; };
+		A66FF440D756E0378C976524 /* H264Parser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E34784B2F2D01468414C5D /* H264Parser.swift */; };
 		A8EE781FFB585D9B3F2DD17A /* MirrorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53096630B9E9400335C886DC /* MirrorWindow.swift */; };
 		A99744003D1C122C592553B8 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1810ADF3AC5D8963E6C4A263 /* Models.swift */; };
 		AA54B94DF95C55663904A764 /* AgentSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96CF8AB160A6EE1619A656F1 /* AgentSocketClient.swift */; };
@@ -44,10 +44,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		08975328AC2F98FF1CC353A9 /* VideoStreamReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoStreamReceiver.swift; sourceTree = "<group>"; };
 		0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		1810ADF3AC5D8963E6C4A263 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2B7F7D64A9D5B1392FEEA4FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		327482CE97EC6A53975676E3 /* AppLaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchOptions.swift; sourceTree = "<group>"; };
 		3A5625B6138396345E1268D1 /* HarmonyMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HarmonyMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarmonyMirrorTests.swift; sourceTree = "<group>"; };
 		50142428F78734CFE2B4A3C0 /* HarmonyMirror.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarmonyMirror.entitlements; sourceTree = "<group>"; };
@@ -58,7 +58,6 @@
 		729CCEBF87E22B4491094509 /* MirrorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorService.swift; sourceTree = "<group>"; };
 		77543EFD6CB9F0BD8F7C5090 /* NetworkDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDiagnostics.swift; sourceTree = "<group>"; };
 		78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
-		7D3F96E0A6717352F999C853 /* H264Decoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
 		7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscovery.swift; sourceTree = "<group>"; };
 		91515D0D44FF90D023EFD911 /* ScreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenImageView.swift; sourceTree = "<group>"; };
 		96CF8AB160A6EE1619A656F1 /* AgentSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSocketClient.swift; sourceTree = "<group>"; };
@@ -66,6 +65,7 @@
 		B20E7B3033D99200FECDD6C1 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		BCCC772D134E219943C1E682 /* DeviceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCard.swift; sourceTree = "<group>"; };
 		BFB39B0358C6D8CD3FEFDDED /* HarmonyMirrorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarmonyMirrorApp.swift; sourceTree = "<group>"; };
+		D7E34784B2F2D01468414C5D /* H264Parser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264Parser.swift; sourceTree = "<group>"; };
 		DCE833FD2BC1E2DFE8D3F47B /* H264VideoLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = H264VideoLayer.swift; sourceTree = "<group>"; };
 		E656274AA61D22A0D4BE4083 /* InputInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputInjector.swift; sourceTree = "<group>"; };
 		E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
@@ -77,11 +77,10 @@
 		3FD8D99B13C14466623A2ACD /* VideoStream */ = {
 			isa = PBXGroup;
 			children = (
-				7D3F96E0A6717352F999C853 /* H264Decoder.swift */,
+				D7E34784B2F2D01468414C5D /* H264Parser.swift */,
 				DCE833FD2BC1E2DFE8D3F47B /* H264VideoLayer.swift */,
 				66E4C5FE08355A7ADF65C748 /* TCPStreamReceiver.swift */,
 				B20E7B3033D99200FECDD6C1 /* VideoPlayerView.swift */,
-				08975328AC2F98FF1CC353A9 /* VideoStreamReceiver.swift */,
 			);
 			path = VideoStream;
 			sourceTree = "<group>";
@@ -100,6 +99,7 @@
 				FE6DA73A3C6FA08DC8EE28FD /* HarmonyMirror */,
 				66DA23C309BC8AA2B0AFCFAA /* HarmonyMirrorTests */,
 				907E0F540D99BBB20805FAC8 /* Products */,
+				F4702BC0943012D714701467 /* Utils */,
 			);
 			sourceTree = "<group>";
 		};
@@ -114,6 +114,7 @@
 		6FC81C7348DC2C065A703128 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				327482CE97EC6A53975676E3 /* AppLaunchOptions.swift */,
 				BFB39B0358C6D8CD3FEFDDED /* HarmonyMirrorApp.swift */,
 			);
 			path = App;
@@ -187,6 +188,14 @@
 			path = Utils;
 			sourceTree = "<group>";
 		};
+		F4702BC0943012D714701467 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Utils;
+			path = HarmonyMirror/Utils;
+			sourceTree = "<group>";
+		};
 		FE6DA73A3C6FA08DC8EE28FD /* HarmonyMirror */ = {
 			isa = PBXGroup;
 			children = (
@@ -218,8 +227,6 @@
 				53D9FF52D399AC070DFB787B /* PBXTargetDependency */,
 			);
 			name = HarmonyMirrorTests;
-			packageProductDependencies = (
-			);
 			productName = HarmonyMirrorTests;
 			productReference = AB9D6DED0B9987B518FDAAE0 /* HarmonyMirrorTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -236,8 +243,6 @@
 			dependencies = (
 			);
 			name = HarmonyMirror;
-			packageProductDependencies = (
-			);
 			productName = HarmonyMirror;
 			productReference = 3A5625B6138396345E1268D1 /* HarmonyMirror.app */;
 			productType = "com.apple.product-type.application";
@@ -301,13 +306,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA54B94DF95C55663904A764 /* AgentSocketClient.swift in Sources */,
+				47600D4D861BEA8A35B04325 /* AppLaunchOptions.swift in Sources */,
 				EDB5F7D4B83AC7768DCEEF2E /* ConnectionStatusBar.swift in Sources */,
 				361B99EFB92865B84B106369 /* Constants.swift in Sources */,
 				625F11BD27D986B1E9CC83B0 /* ContentView.swift in Sources */,
 				E03544CF36FFCA3AAEBA58D7 /* DeviceCard.swift in Sources */,
 				716F25A665FA08A24F5583C6 /* DeviceDiscovery.swift in Sources */,
 				D2AC5895863D3A2CA0B4FB7A /* DeviceListView.swift in Sources */,
-				71053DCF7841FB62A72AC606 /* H264Decoder.swift in Sources */,
+				A66FF440D756E0378C976524 /* H264Parser.swift in Sources */,
 				3589E36D0BA58B202477252D /* H264VideoLayer.swift in Sources */,
 				DF86B00AA2DEFADA083E6CC3 /* HDCCommand.swift in Sources */,
 				BC92EEDFFE466C1CE1A653CA /* HarmonyMirrorApp.swift in Sources */,
@@ -321,7 +327,6 @@
 				CB9683816EA9824731CE0C2A /* ScreenImageView.swift in Sources */,
 				194C1E8462B513F538804B64 /* TCPStreamReceiver.swift in Sources */,
 				7FB884B2F8F21B808978D976 /* VideoPlayerView.swift in Sources */,
-				5A64C354AADD813F02AD521C /* VideoStreamReceiver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,6 +415,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问局域网以发现和投屏 HarmonyOS 设备";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -521,6 +527,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "需要访问局域网以发现和投屏 HarmonyOS 设备";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

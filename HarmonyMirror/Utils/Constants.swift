@@ -21,7 +21,7 @@ enum AppConstants {
     static let castingRemoteHost = "127.0.0.1"
     static let castingRemotePort = "8710"
     static let agentRemotePort = 8711
-    static let wifiDebugPorts = [10178, 43101]
+    static let wifiDebugPorts = [10178, 37669, 40115, 43101, 35101, 37101, 39101, 41101]
     static let lanDiscoveryInterval: TimeInterval = 12.0
     static let lanDiscoveryTimeout: TimeInterval = 0.45
     static let lanDiscoveryConcurrency = 48

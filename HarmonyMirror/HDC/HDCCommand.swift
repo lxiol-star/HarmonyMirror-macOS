@@ -93,6 +93,13 @@ final class HDCCommand {
 
     func connectWiFi(host: String, port: Int = AppConstants.wifiDebugPorts.first ?? 10178) async throws -> String {
         let target = Self.wifiTarget(from: host, defaultPort: port)
+
+        // Validate IP format before attempting connection
+        let hostPart = target.components(separatedBy: ":").first ?? target
+        if !isValidIPv4(hostPart) && !hostPart.hasPrefix("[") {
+            throw MirrorError.commandFailed("无效的 IP 地址格式: \(hostPart)")
+        }
+
         _ = try? await execute(["tconn", target, "-remove"])
         try? await Task.sleep(nanoseconds: 300_000_000)
 
@@ -129,6 +136,15 @@ final class HDCCommand {
         try? await Task.sleep(nanoseconds: 3_000_000_000)
         try await validateTarget(target)
         return retryOutput
+    }
+
+    private func isValidIPv4(_ ip: String) -> Bool {
+        let components = ip.components(separatedBy: ".")
+        guard components.count == 4 else { return false }
+        return components.allSatisfy { component in
+            guard let num = Int(component), num >= 0, num <= 255 else { return false }
+            return true
+        }
     }
 
     func disconnectWiFi(host: String, port: Int = AppConstants.wifiDebugPorts.first ?? 10178) async throws -> String {
@@ -200,18 +216,19 @@ final class HDCCommand {
     }
 
     func deviceProfile(serial: String) async -> DeviceProfile {
-        async let model = optionalShellParam("const.product.model", serial: serial)
-        async let name = optionalShellParam("const.product.name", serial: serial)
-        async let deviceType = optionalShellParam("const.product.devicetype", serial: serial)
-        async let btName = optionalShellParam("bluetooth.name", serial: serial)
-        async let sysName = optionalShellParam("persist.sys.device_name", serial: serial)
-        let values = await (model, name, deviceType, btName, sysName)
-        // Prefer product name (e.g. "HUAWEI Mate 70 Pro+") over model code (e.g. "PLA-AL10")
-        let displayModel = !values.1.isEmpty ? values.1 : values.0
+        // Fetch sequentially — concurrent hdc shell calls over USB can overwhelm
+        // the connection and cause spurious failures. TCP handles concurrency
+        // better, but we serialize for consistency across transports.
+        let model = await optionalShellParam("const.product.model", serial: serial)
+        let name = await optionalShellParam("const.product.name", serial: serial)
+        let deviceType = await optionalShellParam("const.product.devicetype", serial: serial)
+        let btName = await optionalShellParam("bluetooth.name", serial: serial)
+        let sysName = await optionalShellParam("persist.sys.device_name", serial: serial)
         return DeviceProfile(
-            model: displayModel,
-            deviceType: values.2,
-            userName: !values.3.isEmpty ? values.3 : values.4
+            productModel: model,
+            productName: name,
+            deviceType: deviceType,
+            userName: !btName.isEmpty ? btName : sysName
         )
     }
 
@@ -244,6 +261,13 @@ final class HDCCommand {
         var args: [String] = []
         if let serial { args += ["-t", serial] }
         args += ["file", "recv", remote, local]
+        _ = try await execute(args)
+    }
+
+    func fileSend(local: String, remote: String, serial: String? = nil) async throws {
+        var args: [String] = []
+        if let serial { args += ["-t", serial] }
+        args += ["file", "send", local, remote]
         _ = try await execute(args)
     }
 
@@ -313,15 +337,27 @@ final class HDCCommand {
     }
 
     private func optionalShellParam(_ key: String, serial: String) async -> String {
-        guard let output = try? await shell("param get \(key)", serial: serial) else { return "" }
-        let value = output
-            .components(separatedBy: "\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty && !$0.hasPrefix("[") && !$0.lowercased().contains("fail") } ?? ""
-        if value == "default" || value == "unknown" || value == key {
-            return ""
+        // USB hdc shell channel may not be ready immediately after connect;
+        // retry once with a delay if the first attempt throws.
+        let isUSB = !serial.contains(":")
+        for attempt in 0..<(isUSB ? 2 : 1) {
+            if attempt > 0 {
+                try? await Task.sleep(for: .seconds(3))
+            }
+            guard let output = try? await shell("param get \(key)", serial: serial) else { continue }
+            let value = output
+                .components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .first { !$0.isEmpty && !$0.hasPrefix("[") && !$0.lowercased().contains("fail") } ?? ""
+            if value == "default" || value == "unknown" || value == key {
+                return ""
+            }
+            if !value.isEmpty { return value }
+            // If shell succeeded but value was empty/filtered, the param
+            // genuinely doesn't exist — no point retrying.
+            break
         }
-        return value
+        return ""
     }
 
     static func wifiTarget(from input: String, defaultPort: Int = AppConstants.wifiDebugPorts.first ?? 10178) -> String {
@@ -332,10 +368,48 @@ final class HDCCommand {
         target = target
             .replacingOccurrences(of: "hdc://", with: "")
             .replacingOccurrences(of: "tcp://", with: "")
+
+        // IPv6 format
         if target.hasPrefix("[") {
             return target.contains("]:") ? target : "\(target):\(defaultPort)"
         }
-        return target.contains(":") ? target : "\(target):\(defaultPort)"
+
+        // IPv4 format: validate and normalize
+        let parts = target.components(separatedBy: ":")
+        if parts.count == 2 {
+            // Already has port, validate IP part
+            let ipPart = parts[0]
+            let portPart = parts[1]
+            let normalizedIP = normalizeIPv4(ipPart)
+            return "\(normalizedIP):\(portPart)"
+        } else if parts.count == 1 {
+            // No port, add default
+            let normalizedIP = normalizeIPv4(parts[0])
+            return "\(normalizedIP):\(defaultPort)"
+        } else {
+            // Multiple colons, might be malformed - try to extract valid IP
+            let ipPart = parts.dropLast().joined(separator: ".")
+            let normalizedIP = normalizeIPv4(ipPart)
+            if let port = parts.last, !port.isEmpty {
+                return "\(normalizedIP):\(port)"
+            }
+            return "\(normalizedIP):\(defaultPort)"
+        }
+    }
+
+    private static func normalizeIPv4(_ input: String) -> String {
+        // Remove any extra dots and validate IPv4 format
+        let components = input.components(separatedBy: ".")
+            .filter { !$0.isEmpty }
+            .compactMap { Int($0) }
+            .filter { $0 >= 0 && $0 <= 255 }
+
+        if components.count == 4 {
+            return components.map(String.init).joined(separator: ".")
+        }
+
+        // If invalid, return original (will fail later with proper error)
+        return input
     }
 
     private func execute(_ arguments: [String]) async throws -> String {
@@ -379,8 +453,20 @@ final class HDCCommand {
         process.waitUntilExit()
         timer.cancel()
 
-        let outputData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        // Read output safely - pipe might be closed if process was terminated
+        let outputData: Data
+        let errorData: Data
+        do {
+            outputData = try stdoutPipe.fileHandleForReading.readToEnd() ?? Data()
+            errorData = try stderrPipe.fileHandleForReading.readToEnd() ?? Data()
+        } catch {
+            // If reading fails (e.g., pipe closed), return timeout error
+            if didTimeOut {
+                throw MirrorError.commandFailed("hdc \(arguments.joined(separator: " ")) 超时，请检查设备网络或端口是否可达")
+            }
+            throw MirrorError.commandFailed("hdc \(arguments.joined(separator: " ")) 执行失败: \(error.localizedDescription)")
+        }
+
         let output = String(data: outputData, encoding: .utf8) ?? ""
         let errorOutput = String(data: errorData, encoding: .utf8) ?? ""
 

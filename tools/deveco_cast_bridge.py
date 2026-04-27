@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import collections
 import os
+import select
 import signal
 import socket
 import struct
@@ -86,20 +87,70 @@ def find_hdc(explicit: str | None) -> str:
 
 
 def run(cmd: list[str], *, check: bool = True, timeout: float = 15) -> str:
+    """Execute a command using posix_spawn to avoid fork() deadlocks.
+
+    gRPC creates background threads; fork() in a multi-threaded process can
+    deadlock macOS libdispatch locks ('BUG IN CLIENT OF LIBDISPATCH').
+    os.posix_spawnp uses the posix_spawn syscall instead of fork+exec.
+    """
     log("+ " + " ".join(cmd))
-    proc = subprocess.run(
-        cmd,
-        check=False,
-        timeout=timeout,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    output = proc.stdout or ""
+
+    pipe_r, pipe_w = os.pipe()
+    try:
+        fa = os.posix_spawn.FileActions()
+        fa.dup2(pipe_w, 1)
+        fa.dup2(pipe_w, 2)
+        fa.close(pipe_r)
+        pid = os.posix_spawnp(cmd[0], cmd, os.environ, file_actions=fa)
+    except Exception:
+        os.close(pipe_r)
+        os.close(pipe_w)
+        raise
+
+    os.close(pipe_w)
+
+    chunks: list[bytes] = []
+    deadline = time.monotonic() + timeout
+    timed_out = False
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        try:
+            ready, _, _ = select.select([pipe_r], [], [], min(remaining, 1.0))
+        except (OSError, ValueError):
+            break
+        if ready:
+            data = os.read(pipe_r, 65536)
+            if not data:
+                break
+            chunks.append(data)
+
+    os.close(pipe_r)
+
+    if timed_out:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+        raise subprocess.TimeoutExpired(cmd, timeout)
+
+    try:
+        _, status = os.waitpid(pid, 0)
+        returncode = os.waitstatus_to_exitcode(status)
+    except ChildProcessError:
+        returncode = -1
+
+    output = b"".join(chunks).decode("utf-8", errors="replace")
     if output.strip():
         log(output.rstrip())
-    if check and proc.returncode != 0:
-        raise SystemExit(f"command failed ({proc.returncode}): {' '.join(cmd)}")
+    if check and returncode != 0:
+        raise SystemExit(f"command failed ({returncode}): {' '.join(cmd)}")
     return output
 
 

@@ -20,12 +20,23 @@ final class InputInjector {
     private actor InputQueue {
         private var queue: [InputAction] = []
         private var isExecuting = false
+        private let maxQueueSize = 10  // Prevent queue from growing too large
 
         func enqueue(_ action: InputAction, executor: @escaping (InputAction) async -> Void) {
-            // Deduplicate: remove older touchMove entries when a new one arrives
-            if case .touchMove = action {
+            // Deduplicate: keep only the latest touchMove (intermediate drag positions can be dropped)
+            switch action {
+            case .touchMove:
                 queue.removeAll { if case .touchMove = $0 { return true } else { return false } }
+            default:
+                break
             }
+
+            // Drop old actions if queue is too large
+            if queue.count >= maxQueueSize {
+                Log.input.warning("Input queue full (\(self.queue.count)), dropping oldest action")
+                self.queue.removeFirst()
+            }
+
             queue.append(action)
             guard !isExecuting else { return }
             isExecuting = true
@@ -37,6 +48,14 @@ final class InputInjector {
                 isExecuting = false
             }
         }
+
+        func drainQueuedSwipes() {
+            queue.removeAll { if case .swipe = $0 { return true } else { return false } }
+        }
+
+        func clearQueue() {
+            queue.removeAll()
+        }
     }
 
     private let inputQueue = InputQueue()
@@ -44,9 +63,24 @@ final class InputInjector {
     private var lastDragPoint: CGPoint?
     private var currentDeviceTouchPoint: (x: Int, y: Int)?
     private var lastTouchMoveTime: Date = .distantPast
-    private let touchMoveMinInterval: TimeInterval = 1.0 / 10.0  // throttle to ~10Hz to reduce hdc shell backlog
+    private var lastScrollTime: Date = .distantPast
+    private let touchMoveMinInterval: TimeInterval = 1.0 / 10.0  // throttle to ~10Hz
+    private let scrollMinInterval: TimeInterval = 1.0 / 8.0     // throttle scroll to ~8Hz
     private let statusBarZoneFraction: CGFloat = 0.06  // top 6% of screen height = status bar zone
     private var agentClient: AgentSocketClient?
+
+    // MARK: - Double-tap detection
+    private var lastClickTime: Date = .distantPast
+    private var lastClickPoint: (x: Int, y: Int)?
+    private let doubleClickThreshold: TimeInterval = 0.3
+    private let doubleClickDistance: CGFloat = 40  // max distance in device pixels
+
+    // MARK: - Incremental scroll session
+    private var scrollSessionActive = false
+    private var scrollTouchPoint: (x: Int, y: Int)?
+    private var scrollAccumX: CGFloat = 0
+    private var scrollAccumY: CGFloat = 0
+    private let scrollMoveThreshold: CGFloat = 4  // minimum accumulated delta to send a touchMove
 
     init(hdcCommand: HDCCommand, serial: String) {
         self.hdcCommand = hdcCommand
@@ -63,6 +97,14 @@ final class InputInjector {
         enqueue(.click(x: dp.x, y: dp.y))
     }
 
+    func drag(from start: CGPoint, to end: CGPoint, windowSize: CGSize) {
+        guard let sp = mapToDevice(windowPoint: start, windowSize: windowSize),
+              let ep = mapToDevice(windowPoint: end, windowSize: windowSize) else { return }
+        let distance = hypot(CGFloat(ep.x - sp.x), CGFloat(ep.y - sp.y))
+        let speed = max(800, min(4000, Int(distance * 10)))
+        enqueue(.swipe(x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, durationMs: speed))
+    }
+
     func swipe(from start: CGPoint, to end: CGPoint, windowSize: CGSize) {
         guard let sp = mapToDevice(windowPoint: start, windowSize: windowSize),
               let ep = mapToDevice(windowPoint: end, windowSize: windowSize) else { return }
@@ -71,25 +113,60 @@ final class InputInjector {
         enqueue(.swipe(x1: sp.x, y1: sp.y, x2: ep.x, y2: ep.y, durationMs: durationMs))
     }
 
-    func scroll(windowPoint: CGPoint, windowSize: CGSize, deltaX: CGFloat, deltaY: CGFloat) {
-        guard abs(deltaX) >= 1 || abs(deltaY) >= 1,
-              let start = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
+    /// Begin a scroll session (on scrollWheel phase .began)
+    func scrollBegin(windowPoint: CGPoint, windowSize: CGSize) {
+        guard let dp = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
+        scrollSessionActive = true
+        scrollTouchPoint = dp
+        scrollAccumX = 0
+        scrollAccumY = 0
+        enqueue(.touchDown(x: dp.x, y: dp.y))
+    }
 
-        let scaleX = CGFloat(screenWidth) / max(windowSize.width, 1)
-        let scaleY = CGFloat(screenHeight) / max(windowSize.height, 1)
-        let multiplier: CGFloat = 4
-        let endX = max(0, min(screenWidth - 1, start.x - Int(deltaX * scaleX * multiplier)))
-        let endY = max(0, min(screenHeight - 1, start.y - Int(deltaY * scaleY * multiplier)))
-        let distance = hypot(CGFloat(endX - start.x), CGFloat(endY - start.y))
-        guard distance >= 8 else { return }
+    /// Accumulate scroll delta and send touchMove when threshold exceeded
+    func scrollDelta(deltaX: CGFloat, deltaY: CGFloat) {
+        guard scrollSessionActive else { return }
 
-        enqueue(.swipe(
-            x1: start.x,
-            y1: start.y,
-            x2: endX,
-            y2: endY,
-            durationMs: max(80, min(220, Int(distance / 3)))
-        ))
+        scrollAccumX += deltaX
+        scrollAccumY += deltaY
+
+        let dist = hypot(scrollAccumX, scrollAccumY)
+        guard dist >= scrollMoveThreshold else { return }
+
+        let scale: CGFloat = 3
+        let dx = Int(scrollAccumX * scale)
+        let dy = Int(scrollAccumY * scale)
+
+        guard var point = scrollTouchPoint else { return }
+        let newX = max(0, min(screenWidth - 1, point.x - dx))
+        let newY = max(0, min(screenHeight - 1, point.y - dy))
+        let fromX = point.x
+        let fromY = point.y
+        point = (x: newX, y: newY)
+        scrollTouchPoint = point
+        scrollAccumX = 0
+        scrollAccumY = 0
+
+        enqueue(.touchMove(x1: fromX, y1: fromY, x2: point.x, y2: point.y, durationMs: 10))
+    }
+
+    /// End a scroll session (on scrollWheel phase .ended)
+    func scrollEnd() {
+        guard scrollSessionActive, let point = scrollTouchPoint else { return }
+        scrollSessionActive = false
+        scrollTouchPoint = nil
+        scrollAccumX = 0
+        scrollAccumY = 0
+        enqueue(.touchUp(x: point.x, y: point.y))
+    }
+
+    /// Cancel scroll session (on scrollWheel phase .cancelled)
+    func scrollCancel() {
+        guard scrollSessionActive else { return }
+        scrollSessionActive = false
+        scrollTouchPoint = nil
+        scrollAccumX = 0
+        scrollAccumY = 0
     }
 
     func back() {
@@ -126,7 +203,7 @@ final class InputInjector {
     // MARK: - Real-time touch events
 
     private var touchDownTime: Date?
-    private let minPressDuration: TimeInterval = 0.05  // 50ms minimum press time for clicks
+    private let minPressDuration: TimeInterval = 0.02  // 20ms minimum press time for accidental touch rejection
 
     func touchDown(windowPoint: CGPoint, windowSize: CGSize) {
         guard let dp = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
@@ -159,6 +236,25 @@ final class InputInjector {
         touchDownTime = nil
 
         let pressDuration = Date().timeIntervalSince(downTime ?? .distantPast)
+        let now = Date()
+
+        // Double-tap detection
+        let timeSinceLastClick = now.timeIntervalSince(lastClickTime)
+        if timeSinceLastClick < doubleClickThreshold,
+           let lastPt = lastClickPoint,
+           hypot(CGFloat(dp.x - lastPt.x), CGFloat(dp.y - lastPt.y)) < doubleClickDistance {
+            // This is a double-tap: send two quick touch events
+            // First touchUp for the current tap
+            enqueue(.touchUp(x: dp.x, y: dp.y))
+            // Reset for next
+            lastClickTime = .distantPast
+            lastClickPoint = nil
+            return
+        }
+
+        lastClickTime = now
+        lastClickPoint = dp
+
         let remaining = max(0, minPressDuration - pressDuration)
         if remaining > 0 {
             Task {
@@ -175,6 +271,46 @@ final class InputInjector {
         lastDragPoint = nil
         currentDeviceTouchPoint = nil
         touchDownTime = nil
+    }
+
+    /// Reset all in-progress input state. Call when window transitions (fullscreen, etc.)
+    /// to prevent stuck touches on the device.
+    func resetInputState() {
+        if scrollSessionActive {
+            if let point = scrollTouchPoint {
+                enqueue(.touchUp(x: point.x, y: point.y))
+            }
+            scrollSessionActive = false
+            scrollTouchPoint = nil
+            scrollAccumX = 0
+            scrollAccumY = 0
+        }
+        cancelDrag()
+    }
+
+    // MARK: - Multi-touch (slot-based)
+
+    func multiTouchBegan(windowPoint: CGPoint, windowSize: CGSize, slot: UInt8) {
+        guard let dp = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
+        Task { [weak self] in
+            guard let self, let client = agentClient, client.isConnected else { return }
+            client.sendMultiTouch(down: true, slot: slot, x: normalizedX(dp.x), y: normalizedY(dp.y))
+        }
+    }
+
+    func multiTouchMoved(windowPoint: CGPoint, windowSize: CGSize, slot: UInt8) {
+        guard let dp = mapToDevice(windowPoint: windowPoint, windowSize: windowSize) else { return }
+        Task { [weak self] in
+            guard let self, let client = agentClient, client.isConnected else { return }
+            client.sendTouch(.touchMove, slot: slot, x: normalizedX(dp.x), y: normalizedY(dp.y))
+        }
+    }
+
+    func multiTouchEnded(slot: UInt8) {
+        Task { [weak self] in
+            guard let self, let client = agentClient, client.isConnected else { return }
+            client.sendMultiTouch(down: false, slot: slot, x: 0, y: 0)
+        }
     }
 
     // MARK: - Status bar edge detection
@@ -198,9 +334,13 @@ final class InputInjector {
     }
 
     func statusBarPullDown(fromLeft: Bool) {
-        let startX = fromLeft ? screenWidth / 4 : screenWidth * 3 / 4
-        let startY = 5
-        let endY = Int(CGFloat(screenHeight) * 0.42)
+        Task {
+            await inputQueue.drainQueuedSwipes()
+        }
+        let startX = fromLeft ? screenWidth / 4 : Int(Double(screenWidth) * 0.95)
+        let startY = fromLeft ? 5 : max(12, min(48, Int(Double(screenHeight) * 0.02)))
+        let endY = Int(CGFloat(screenHeight) * (fromLeft ? 0.42 : 0.45))
+        let speed = fromLeft ? 700 : 2_000
         Task {
             do {
                 try await hdcCommand.inputSwipe(
@@ -208,7 +348,7 @@ final class InputInjector {
                     y1: startY,
                     x2: startX,
                     y2: endY,
-                    speed: 600,
+                    speed: speed,
                     serial: serial
                 )
             } catch {
@@ -227,9 +367,9 @@ final class InputInjector {
                     }
                     switch action {
                     case .click(let x, let y):
-                        try await self.hdcCommand.uinputClick(x: x, y: y, serial: self.serial)
+                        try await self.hdcCommand.inputClick(x: x, y: y, serial: self.serial)
                     case .swipe(let x1, let y1, let x2, let y2, let durationMs):
-                        try await self.hdcCommand.uinputSwipe(x1: x1, y1: y1, x2: x2, y2: y2, durationMs: durationMs, serial: self.serial)
+                        try await self.hdcCommand.inputSwipe(x1: x1, y1: y1, x2: x2, y2: y2, speed: durationMs, serial: self.serial)
                     case .touchDown(let x, let y):
                         try await self.hdcCommand.uinputTouchDown(x: x, y: y, serial: self.serial)
                     case .touchUp(let x, let y):
@@ -258,13 +398,14 @@ final class InputInjector {
         switch action {
         case .click(let x, let y):
             agentClient.sendTouch(.touchDown, x: normalizedX(x), y: normalizedY(y))
-            try? await Task.sleep(nanoseconds: 35_000_000)
+            try? await Task.sleep(nanoseconds: 15_000_000)
             agentClient.sendTouch(.touchUp, x: normalizedX(x), y: normalizedY(y))
         case .swipe(let x1, let y1, let x2, let y2, let durationMs):
             agentClient.sendTouch(.touchDown, x: normalizedX(x1), y: normalizedY(y1))
-            try? await Task.sleep(nanoseconds: UInt64(max(20, durationMs / 2)) * 1_000_000)
+            let half = min(durationMs / 2, 200)
+            try? await Task.sleep(nanoseconds: UInt64(half) * 1_000_000)
             agentClient.sendTouch(.touchMove, x: normalizedX(x2), y: normalizedY(y2))
-            try? await Task.sleep(nanoseconds: UInt64(max(20, durationMs / 2)) * 1_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(min(half, 200)) * 1_000_000)
             agentClient.sendTouch(.touchUp, x: normalizedX(x2), y: normalizedY(y2))
         case .touchDown(let x, let y):
             agentClient.sendTouch(.touchDown, x: normalizedX(x), y: normalizedY(y))

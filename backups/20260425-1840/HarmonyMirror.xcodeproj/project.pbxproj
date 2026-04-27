@@ -1,0 +1,548 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		313E84654A1DE775DBAAC6A5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2B7F7D64A9D5B1392FEEA4FF /* Assets.xcassets */; };
+		361B99EFB92865B84B106369 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */; };
+		3DB1F7136747288AA7331A56 /* TCPStreamReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF952A4FD15E7B4AFAF75BB4 /* TCPStreamReceiver.swift */; };
+		4DAA2A21C4F2C0590FBECCEF /* ScreenCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */; };
+		602C38CF1AD717FC025C7C58 /* HarmonyMirrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */; };
+		618933EEAE475186DD9FC092 /* VideoStreamReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50E41BE9623153B277FC9DB /* VideoStreamReceiver.swift */; };
+		625F11BD27D986B1E9CC83B0 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF591379C547FE87D3DD5E58 /* ContentView.swift */; };
+		6E1939C256810BF3863EC28B /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */; };
+		716F25A665FA08A24F5583C6 /* DeviceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */; };
+		8BD7E9047955FA457F2521AC /* H264Decoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFBECED7B040C82ACD7087F6 /* H264Decoder.swift */; };
+		99291554534F7E0CE97547C6 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B66A60574407953303DEC6F /* VideoPlayerView.swift */; };
+		A8EE781FFB585D9B3F2DD17A /* MirrorWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53096630B9E9400335C886DC /* MirrorWindow.swift */; };
+		A99744003D1C122C592553B8 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1810ADF3AC5D8963E6C4A263 /* Models.swift */; };
+		ACD7EBC592E6E32E22E94729 /* MirrorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 729CCEBF87E22B4491094509 /* MirrorService.swift */; };
+		BC92EEDFFE466C1CE1A653CA /* HarmonyMirrorApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFB39B0358C6D8CD3FEFDDED /* HarmonyMirrorApp.swift */; };
+		CB9683816EA9824731CE0C2A /* ScreenImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91515D0D44FF90D023EFD911 /* ScreenImageView.swift */; };
+		D2AC5895863D3A2CA0B4FB7A /* DeviceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67CD9F48508637C3E71352A /* DeviceListView.swift */; };
+		DF86B00AA2DEFADA083E6CC3 /* HDCCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F2FDCD99BB63336A90FD17 /* HDCCommand.swift */; };
+		E03544CF36FFCA3AAEBA58D7 /* DeviceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCCC772D134E219943C1E682 /* DeviceCard.swift */; };
+		E4E601816B8B638E5FF691D2 /* InputInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = E656274AA61D22A0D4BE4083 /* InputInjector.swift */; };
+		EB0CBA4355716FEE690CBAF5 /* H264VideoLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E47AF7E8DAB2279716EF2E07 /* H264VideoLayer.swift */; };
+		EDB5F7D4B83AC7768DCEEF2E /* ConnectionStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 501E473A23B7A9D3786394CB /* ConnectionStatusBar.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		82F0F1C8C3FC86EFAA776F20 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 46B826D5755B113061769288 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2B591DB94E141DCA90B3CB25;
+			remoteInfo = HarmonyMirror;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		1810ADF3AC5D8963E6C4A263 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		2B7F7D64A9D5B1392FEEA4FF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3A5625B6138396345E1268D1 /* HarmonyMirror.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HarmonyMirror.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3B66A60574407953303DEC6F /* VideoPlayerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarmonyMirrorTests.swift; sourceTree = "<group>"; };
+		50142428F78734CFE2B4A3C0 /* HarmonyMirror.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HarmonyMirror.entitlements; sourceTree = "<group>"; };
+		501E473A23B7A9D3786394CB /* ConnectionStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusBar.swift; sourceTree = "<group>"; };
+		53096630B9E9400335C886DC /* MirrorWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorWindow.swift; sourceTree = "<group>"; };
+		70F2FDCD99BB63336A90FD17 /* HDCCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HDCCommand.swift; sourceTree = "<group>"; };
+		729CCEBF87E22B4491094509 /* MirrorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirrorService.swift; sourceTree = "<group>"; };
+		78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenCapture.swift; sourceTree = "<group>"; };
+		7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscovery.swift; sourceTree = "<group>"; };
+		91515D0D44FF90D023EFD911 /* ScreenImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenImageView.swift; sourceTree = "<group>"; };
+		AB9D6DED0B9987B518FDAAE0 /* HarmonyMirrorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HarmonyMirrorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BCCC772D134E219943C1E682 /* DeviceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceCard.swift; sourceTree = "<group>"; };
+		BFB39B0358C6D8CD3FEFDDED /* HarmonyMirrorApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HarmonyMirrorApp.swift; sourceTree = "<group>"; };
+		DF952A4FD15E7B4AFAF75BB4 /* TCPStreamReceiver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TCPStreamReceiver.swift; sourceTree = "<group>"; };
+		E47AF7E8DAB2279716EF2E07 /* H264VideoLayer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = H264VideoLayer.swift; sourceTree = "<group>"; };
+		E50E41BE9623153B277FC9DB /* VideoStreamReceiver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VideoStreamReceiver.swift; sourceTree = "<group>"; };
+		E656274AA61D22A0D4BE4083 /* InputInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputInjector.swift; sourceTree = "<group>"; };
+		E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		EFBECED7B040C82ACD7087F6 /* H264Decoder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = H264Decoder.swift; sourceTree = "<group>"; };
+		F67CD9F48508637C3E71352A /* DeviceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceListView.swift; sourceTree = "<group>"; };
+		FF591379C547FE87D3DD5E58 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2E84870E8655220EA79813E9 /* VideoStream */ = {
+			isa = PBXGroup;
+			children = (
+				E50E41BE9623153B277FC9DB /* VideoStreamReceiver.swift */,
+				DF952A4FD15E7B4AFAF75BB4 /* TCPStreamReceiver.swift */,
+				EFBECED7B040C82ACD7087F6 /* H264Decoder.swift */,
+				3B66A60574407953303DEC6F /* VideoPlayerView.swift */,
+				E47AF7E8DAB2279716EF2E07 /* H264VideoLayer.swift */,
+			);
+			name = VideoStream;
+			path = VideoStream;
+			sourceTree = "<group>";
+		};
+		44C6186822D7C0A619CD8ABB /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2B7F7D64A9D5B1392FEEA4FF /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		48F94DC411010863B94EA5DB = {
+			isa = PBXGroup;
+			children = (
+				FE6DA73A3C6FA08DC8EE28FD /* HarmonyMirror */,
+				66DA23C309BC8AA2B0AFCFAA /* HarmonyMirrorTests */,
+				907E0F540D99BBB20805FAC8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		66DA23C309BC8AA2B0AFCFAA /* HarmonyMirrorTests */ = {
+			isa = PBXGroup;
+			children = (
+				3C8F1E043F07526FB1729052 /* HarmonyMirrorTests.swift */,
+			);
+			path = HarmonyMirrorTests;
+			sourceTree = "<group>";
+		};
+		6FC81C7348DC2C065A703128 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				BFB39B0358C6D8CD3FEFDDED /* HarmonyMirrorApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		907E0F540D99BBB20805FAC8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				3A5625B6138396345E1268D1 /* HarmonyMirror.app */,
+				AB9D6DED0B9987B518FDAAE0 /* HarmonyMirrorTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		97DF8D3A3E2CE788174BFE9E /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				729CCEBF87E22B4491094509 /* MirrorService.swift */,
+				1810ADF3AC5D8963E6C4A263 /* Models.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A0A52CE58213A4A5DCBF5074 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				501E473A23B7A9D3786394CB /* ConnectionStatusBar.swift */,
+				BCCC772D134E219943C1E682 /* DeviceCard.swift */,
+				91515D0D44FF90D023EFD911 /* ScreenImageView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		A201ADDD0287FA0483A1F994 /* HDC */ = {
+			isa = PBXGroup;
+			children = (
+				7FEA51E7D9E90B74DA721EB6 /* DeviceDiscovery.swift */,
+				70F2FDCD99BB63336A90FD17 /* HDCCommand.swift */,
+				E656274AA61D22A0D4BE4083 /* InputInjector.swift */,
+				78DC9BD9FD1848B15545E643 /* ScreenCapture.swift */,
+			);
+			path = HDC;
+			sourceTree = "<group>";
+		};
+		CE9CF0453029C8D9C3852944 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FF591379C547FE87D3DD5E58 /* ContentView.swift */,
+				F67CD9F48508637C3E71352A /* DeviceListView.swift */,
+				53096630B9E9400335C886DC /* MirrorWindow.swift */,
+				A0A52CE58213A4A5DCBF5074 /* Components */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F37992331EB37E1CB5BBEFF6 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				E969BE2F8A26F7D8DB1C6ED9 /* Constants.swift */,
+				0CC9F7DA32BDDA96FA2D0BEA /* Logger.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		FE6DA73A3C6FA08DC8EE28FD /* HarmonyMirror */ = {
+			isa = PBXGroup;
+			children = (
+				50142428F78734CFE2B4A3C0 /* HarmonyMirror.entitlements */,
+				6FC81C7348DC2C065A703128 /* App */,
+				97DF8D3A3E2CE788174BFE9E /* Core */,
+				A201ADDD0287FA0483A1F994 /* HDC */,
+				44C6186822D7C0A619CD8ABB /* Resources */,
+				F37992331EB37E1CB5BBEFF6 /* Utils */,
+				CE9CF0453029C8D9C3852944 /* Views */,
+				2E84870E8655220EA79813E9 /* VideoStream */,
+			);
+			path = HarmonyMirror;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0D8A96CDE7C170843451D8AC /* HarmonyMirrorTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 80A03C59C4A6FF57879DB4E9 /* Build configuration list for PBXNativeTarget "HarmonyMirrorTests" */;
+			buildPhases = (
+				5516C429A3D4871DDC504A6C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				53D9FF52D399AC070DFB787B /* PBXTargetDependency */,
+			);
+			name = HarmonyMirrorTests;
+			productName = HarmonyMirrorTests;
+			productReference = AB9D6DED0B9987B518FDAAE0 /* HarmonyMirrorTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		2B591DB94E141DCA90B3CB25 /* HarmonyMirror */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0A2F3B767867DFC988252C2E /* Build configuration list for PBXNativeTarget "HarmonyMirror" */;
+			buildPhases = (
+				AD3BBDFB2F9D849F817EAEA8 /* Sources */,
+				AF226B0023CB4C6FD527434F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HarmonyMirror;
+			productName = HarmonyMirror;
+			productReference = 3A5625B6138396345E1268D1 /* HarmonyMirror.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		46B826D5755B113061769288 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2B591DB94E141DCA90B3CB25 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4F752C1026FDA9E74E468D2A /* Build configuration list for PBXProject "HarmonyMirror" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 48F94DC411010863B94EA5DB;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 907E0F540D99BBB20805FAC8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2B591DB94E141DCA90B3CB25 /* HarmonyMirror */,
+				0D8A96CDE7C170843451D8AC /* HarmonyMirrorTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AF226B0023CB4C6FD527434F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				313E84654A1DE775DBAAC6A5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5516C429A3D4871DDC504A6C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				602C38CF1AD717FC025C7C58 /* HarmonyMirrorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AD3BBDFB2F9D849F817EAEA8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EDB5F7D4B83AC7768DCEEF2E /* ConnectionStatusBar.swift in Sources */,
+				361B99EFB92865B84B106369 /* Constants.swift in Sources */,
+				625F11BD27D986B1E9CC83B0 /* ContentView.swift in Sources */,
+				E03544CF36FFCA3AAEBA58D7 /* DeviceCard.swift in Sources */,
+				716F25A665FA08A24F5583C6 /* DeviceDiscovery.swift in Sources */,
+				D2AC5895863D3A2CA0B4FB7A /* DeviceListView.swift in Sources */,
+				DF86B00AA2DEFADA083E6CC3 /* HDCCommand.swift in Sources */,
+				BC92EEDFFE466C1CE1A653CA /* HarmonyMirrorApp.swift in Sources */,
+				E4E601816B8B638E5FF691D2 /* InputInjector.swift in Sources */,
+				6E1939C256810BF3863EC28B /* Logger.swift in Sources */,
+				ACD7EBC592E6E32E22E94729 /* MirrorService.swift in Sources */,
+				A8EE781FFB585D9B3F2DD17A /* MirrorWindow.swift in Sources */,
+				A99744003D1C122C592553B8 /* Models.swift in Sources */,
+				4DAA2A21C4F2C0590FBECCEF /* ScreenCapture.swift in Sources */,
+				CB9683816EA9824731CE0C2A /* ScreenImageView.swift in Sources */,
+				618933EEAE475186DD9FC092 /* VideoStreamReceiver.swift in Sources */,
+				3DB1F7136747288AA7331A56 /* TCPStreamReceiver.swift in Sources */,
+				8BD7E9047955FA457F2521AC /* H264Decoder.swift in Sources */,
+				99291554534F7E0CE97547C6 /* VideoPlayerView.swift in Sources */,
+				EB0CBA4355716FEE690CBAF5 /* H264VideoLayer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		53D9FF52D399AC070DFB787B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2B591DB94E141DCA90B3CB25 /* HarmonyMirror */;
+			targetProxy = 82F0F1C8C3FC86EFAA776F20 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		05D032DCAC2EFCD0DBBFA56A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		1866817EF2CAFFD39AF91037 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HarmonyMirror/HarmonyMirror.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.harmonymirror.app;
+				PRODUCT_NAME = HarmonyMirror;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		7AC8DA184F436E7F246475B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		8FBCCB0B69023A9966DE8080 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.harmonymirror.HarmonyMirrorTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HarmonyMirror.app/Contents/MacOS/HarmonyMirror";
+			};
+			name = Release;
+		};
+		A05F7638F7F4147C824C5E89 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.harmonymirror.HarmonyMirrorTests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HarmonyMirror.app/Contents/MacOS/HarmonyMirror";
+			};
+			name = Debug;
+		};
+		BCCD1E9839513D0BC60A5E89 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HarmonyMirror/HarmonyMirror.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.harmonymirror.app;
+				PRODUCT_NAME = HarmonyMirror;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0A2F3B767867DFC988252C2E /* Build configuration list for PBXNativeTarget "HarmonyMirror" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1866817EF2CAFFD39AF91037 /* Debug */,
+				BCCD1E9839513D0BC60A5E89 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4F752C1026FDA9E74E468D2A /* Build configuration list for PBXProject "HarmonyMirror" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				05D032DCAC2EFCD0DBBFA56A /* Debug */,
+				7AC8DA184F436E7F246475B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		80A03C59C4A6FF57879DB4E9 /* Build configuration list for PBXNativeTarget "HarmonyMirrorTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A05F7638F7F4147C824C5E89 /* Debug */,
+				8FBCCB0B69023A9966DE8080 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 46B826D5755B113061769288 /* Project object */;
+}

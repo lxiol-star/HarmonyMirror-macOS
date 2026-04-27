@@ -17,6 +17,7 @@ macOS 上的鸿蒙设备投屏工具 — 在 Mac 上实时查看和控制 Harmon
 - macOS 触控板双指滚动和捏合缩放
 - Wi-Fi 网络诊断（Mac IP、网关、目标端口探测）
 - HarmonyAgent 低延迟输入优先路径（不可用时自动回退 hdc 输入）
+- 自动化测试启动参数（指定设备自动连接、定时退出）
 
 ## 快速开始
 
@@ -40,6 +41,17 @@ open ~/Library/Developer/Xcode/DerivedData/HarmonyMirror-*/Build/Products/Debug/
 ```
 
 > 注意：Debug 构建必须通过 `open` 启动 `.app`，不能直接执行二进制文件。
+
+### 自动化测试启动
+
+```shell
+open -n /Applications/HarmonyMirror.app --args --connect 192.168.18.188:10178 --exit-after 30
+open -n /Applications/HarmonyMirror.app --args --connect-first --exit-after 30
+```
+
+- `--connect <serial>`：自动连接指定 hdc target。
+- `--connect-first`：自动连接首个可用设备，优先 USB，其次平板。
+- `--exit-after <seconds>`：连接后定时退出，便于 smoke test。
 
 ## 使用方法
 
@@ -76,7 +88,7 @@ App 也会自动扫描局域网并连接发现的设备。
 ### 注意事项
 
 - 锁屏和密码输入界面因系统安全限制无法远程操作，需在设备上手动解锁
-- 通知中心/控制中心按钮已改用 `uitest uiInput swipe`，桌面状态可打开；锁屏状态仍受系统安全限制
+- 通知中心/控制中心按钮已改用 `uitest uiInput swipe`；通知中心走左上快速下拉，控制中心走右上约 95% 宽度、距离顶边约 2% 的慢速下拉。桌面状态可打开，锁屏状态仍受系统安全限制
 - Wi-Fi 连接需要设备和 Mac 在同一局域网，部分路由器可能隔离客户端
 
 ## 项目文档

@@ -4,16 +4,17 @@ import AVFoundation
 struct MirrorWindow: View {
     @ObservedObject var service: MirrorService
     @State private var dragStart: CGPoint?
-    @State private var dragStartTime: Date?
     @State private var isDragging = false
-    @State private var hasSentTouchDown = false
     @State private var isDraggingFromTopEdge = false
     @State private var hasTriggeredSystemPullDown = false
-    @State private var pendingTouchDownTask: Task<Void, Never>?
     @State private var window: NSWindow?
     @State private var isFullScreen = false
     @State private var lastAutoResizeSize: CGSize?
     @State private var manualVideoScale: CGFloat?
+    @State private var pinchSessionActive = false
+    @State private var pinchFinger1: CGPoint = .zero
+    @State private var pinchFinger2: CGPoint = .zero
+    @State private var lastViewSize: CGSize = .zero
     private let dragThreshold: CGFloat = 5
     private let systemPullDownThreshold: CGFloat = 32
     private let longPressThreshold: TimeInterval = 0.15
@@ -74,57 +75,34 @@ struct MirrorWindow: View {
                         },
                         onMouseDown: { point, size in
                             dragStart = point
-                            dragStartTime = Date()
                             isDragging = false
-                            hasSentTouchDown = false
+                            lastViewSize = size
                             isDraggingFromTopEdge = service.inputInjector?.isInStatusBarZone(
                                 windowPoint: point, windowSize: size
                             ) ?? false
                             hasTriggeredSystemPullDown = false
-
-                            pendingTouchDownTask = Task {
-                                try? await Task.sleep(nanoseconds: UInt64(longPressThreshold * 1_000_000_000))
-                                guard !Task.isCancelled else { return }
-                                hasSentTouchDown = true
-                                if isDraggingFromTopEdge {
-                                    service.inputInjector?.touchDownFromEdge(windowPoint: point, windowSize: size)
-                                } else {
-                                    service.inputInjector?.touchDown(windowPoint: point, windowSize: size)
-                                }
-                            }
                         },
                         onMouseUp: { point, size in
-                            pendingTouchDownTask?.cancel()
-                            pendingTouchDownTask = nil
-
-                            guard let start = dragStart, let startTime = dragStartTime else {
-                                dragStart = nil
-                                dragStartTime = nil
-                                return
+                            guard let start = dragStart else {
+                                dragStart = nil; return
                             }
 
                             let dist = hypot(point.x - start.x, point.y - start.y)
-                            let pressDuration = Date().timeIntervalSince(startTime)
 
-                            if isDragging {
-                                if hasSentTouchDown {
-                                    service.inputInjector?.touchUp(windowPoint: point, windowSize: size)
-                                }
+                            if hasTriggeredSystemPullDown {
+                                // no-op
+                            } else if isDragging {
+                                // Drag → single swipe from start to end (uitest)
+                                service.inputInjector?.drag(
+                                    from: start, to: point, windowSize: size
+                                )
                             } else if dist < dragThreshold {
-                                if pressDuration < longPressThreshold {
-                                    service.inputInjector?.click(windowPoint: point, windowSize: size)
-                                } else if hasSentTouchDown {
-                                    service.inputInjector?.touchUp(windowPoint: point, windowSize: size)
-                                } else {
-                                    service.inputInjector?.touchDown(windowPoint: point, windowSize: size)
-                                    service.inputInjector?.touchUp(windowPoint: point, windowSize: size)
-                                }
+                                // Tap → click (uitest)
+                                service.inputInjector?.click(windowPoint: point, windowSize: size)
                             }
 
                             dragStart = nil
-                            dragStartTime = nil
                             isDragging = false
-                            hasSentTouchDown = false
                             isDraggingFromTopEdge = false
                             hasTriggeredSystemPullDown = false
                         },
@@ -134,11 +112,9 @@ struct MirrorWindow: View {
                             if isDraggingFromTopEdge,
                                !hasTriggeredSystemPullDown,
                                point.y - start.y >= systemPullDownThreshold {
-                                pendingTouchDownTask?.cancel()
-                                pendingTouchDownTask = nil
                                 hasTriggeredSystemPullDown = true
-                                hasSentTouchDown = false
                                 isDragging = false
+                                service.inputInjector?.cancelDrag()
                                 service.inputInjector?.statusBarPullDown(fromLeft: start.x < size.width / 2)
                                 return
                             }
@@ -146,43 +122,66 @@ struct MirrorWindow: View {
 
                             if dist >= dragThreshold && !isDragging {
                                 isDragging = true
-                                pendingTouchDownTask?.cancel()
-                                pendingTouchDownTask = nil
-
-                                if !hasSentTouchDown {
-                                    hasSentTouchDown = true
-                                    if isDraggingFromTopEdge {
-                                        service.inputInjector?.touchDownFromEdge(windowPoint: start, windowSize: size)
-                                    } else {
-                                        service.inputInjector?.touchDown(windowPoint: start, windowSize: size)
-                                    }
-                                }
                             }
-
-                            if isDragging && hasSentTouchDown {
-                                service.inputInjector?.touchMove(windowPoint: point, windowSize: size)
-                            }
+                            // No touchMove calls — drag accumulated, dispatched as single swipe on mouseUp
                         },
                         onRightClick: {
                             service.inputInjector?.back()
                         },
-                        onScroll: { point, size, deltaX, deltaY in
-                            service.inputInjector?.scroll(
-                                windowPoint: point,
-                                windowSize: size,
-                                deltaX: deltaX,
-                                deltaY: deltaY
-                            )
+                        onScrollBegin: { point, size in
+                            service.inputInjector?.scrollBegin(windowPoint: point, windowSize: size)
                         },
-                        onMagnify: { magnification in
-                            let factor = max(0.75, min(1.25, 1 + magnification))
-                            resizeWindow(scale: currentVideoScale() * factor)
+                        onScrollDelta: { deltaX, deltaY in
+                            service.inputInjector?.scrollDelta(deltaX: deltaX, deltaY: deltaY)
+                        },
+                        onScrollEnd: {
+                            service.inputInjector?.scrollEnd()
+                        },
+                        onScrollCancel: {
+                            service.inputInjector?.scrollCancel()
+                        },
+                        onMagnifyPhase: { magnification, phase in
+                            switch phase {
+                            case .began:
+                                let center = CGPoint(x: lastViewSize.width / 2, y: lastViewSize.height / 2)
+                                let baseDist = lastViewSize.width * 0.1
+                                pinchFinger1 = CGPoint(x: center.x - baseDist, y: center.y)
+                                pinchFinger2 = CGPoint(x: center.x + baseDist, y: center.y)
+                                pinchSessionActive = true
+                                service.inputInjector?.multiTouchBegan(windowPoint: pinchFinger1, windowSize: lastViewSize, slot: 0)
+                                service.inputInjector?.multiTouchBegan(windowPoint: pinchFinger2, windowSize: lastViewSize, slot: 1)
+                            case .changed:
+                                guard pinchSessionActive else { return }
+                                let center = CGPoint(x: lastViewSize.width / 2, y: lastViewSize.height / 2)
+                                let baseDist = lastViewSize.width * 0.1
+                                let dist = baseDist * max(0.1, 1 + magnification * 3)
+                                pinchFinger1 = CGPoint(x: center.x - dist, y: center.y)
+                                pinchFinger2 = CGPoint(x: center.x + dist, y: center.y)
+                                service.inputInjector?.multiTouchMoved(windowPoint: pinchFinger1, windowSize: lastViewSize, slot: 0)
+                                service.inputInjector?.multiTouchMoved(windowPoint: pinchFinger2, windowSize: lastViewSize, slot: 1)
+                            case .ended, .cancelled:
+                                guard pinchSessionActive else { return }
+                                pinchSessionActive = false
+                                service.inputInjector?.multiTouchEnded(slot: 0)
+                                service.inputInjector?.multiTouchEnded(slot: 1)
+                            default:
+                                break
+                            }
+                        },
+                        onTouchBegan: { point, size, slot in
+                            service.inputInjector?.multiTouchBegan(windowPoint: point, windowSize: size, slot: slot)
+                        },
+                        onTouchMoved: { point, size, slot in
+                            service.inputInjector?.multiTouchMoved(windowPoint: point, windowSize: size, slot: slot)
+                        },
+                        onTouchEnded: { _, _, slot in
+                            service.inputInjector?.multiTouchEnded(slot: slot)
                         }
                     )
                     .frame(width: size.width, height: size.height)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2)
 
-                    // Loading overlay
+                    // Loading overlay — must not block touch events to underlying VideoPlayerView
                     if showOverlay {
                         VideoLoadingOverlay(
                             state: service.state,
@@ -190,6 +189,7 @@ struct MirrorWindow: View {
                             deviceName: service.currentDevice?.displayName ?? ""
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(false)
                     }
                 }
             }
@@ -224,22 +224,30 @@ struct MirrorWindow: View {
             resizeWindowIfNeeded()
         } onEnterFullScreen: { window in
             isFullScreen = true
+            pinchSessionActive = false
+            // Don't reset input state - it may cause input to stop working
+            // Just cancel any active pinch gesture
             manualVideoScale = nil
             lastAutoResizeSize = nil
-            resizeWindowIfNeeded(force: true, anchor: .top)
+            // Delay resize to allow fullscreen animation to complete
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                resizeWindowIfNeeded(force: true, anchor: .top)
+            }
             window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
         } onExitFullScreen: { window in
             isFullScreen = false
+            pinchSessionActive = false
+            // Don't reset input state - it may cause input to stop working
             lastAutoResizeSize = nil
-            resizeWindowIfNeeded(force: true, anchor: .top)
+            // Delay resize to allow fullscreen animation to complete
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                resizeWindowIfNeeded(force: true, anchor: .top)
+            }
             window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
         })
-        .onChange(of: service.screenWidth) { _, _ in
-            lastAutoResizeSize = nil
-            manualVideoScale = nil
-            resizeWindowIfNeeded(force: true)
-        }
-        .onChange(of: service.screenHeight) { _, _ in
+        .onChange(of: screenSizeKey) {
             lastAutoResizeSize = nil
             manualVideoScale = nil
             resizeWindowIfNeeded(force: true)
@@ -361,6 +369,10 @@ struct MirrorWindow: View {
         }
     }
 
+    private var screenSizeKey: String {
+        "\(service.screenWidth)x\(service.screenHeight)"
+    }
+
     private func resizeWindow(scale: CGFloat) {
         manualVideoScale = clamp(scale, minVideoScale(), maxAvailableVideoScale())
         resizeWindowIfNeeded(force: true, anchor: .bottom)
@@ -402,7 +414,10 @@ struct MirrorWindow: View {
 
     private func configureResizeConstraints(for window: NSWindow, target: CGSize) {
         window.minSize = service.preferredMinWindowSize
-        window.contentAspectRatio = target
+        // Don't set aspect ratio in fullscreen mode - it conflicts with fullscreen constraints
+        if !isFullScreen {
+            window.contentAspectRatio = target
+        }
         window.collectionBehavior.insert([.fullScreenPrimary, .fullScreenAllowsTiling])
     }
 
@@ -461,11 +476,17 @@ private struct WindowAccessor: NSViewRepresentable {
             let center = NotificationCenter.default
             observers.append(center.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: window, queue: .main) { [weak self] note in
                 guard let window = note.object as? NSWindow else { return }
-                self?.onEnterFullScreen(window)
+                // Ensure callback runs on main thread
+                DispatchQueue.main.async {
+                    self?.onEnterFullScreen(window)
+                }
             })
             observers.append(center.addObserver(forName: NSWindow.didExitFullScreenNotification, object: window, queue: .main) { [weak self] note in
                 guard let window = note.object as? NSWindow else { return }
-                self?.onExitFullScreen(window)
+                // Ensure callback runs on main thread
+                DispatchQueue.main.async {
+                    self?.onExitFullScreen(window)
+                }
             })
         }
 

@@ -101,7 +101,7 @@ struct DeviceListView: View {
                         .multilineTextAlignment(.center)
                 }
                 .padding(40)
-            } else if discovery.devices.isEmpty {
+            } else if discovery.deviceGroups.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "display.trianglebadge.exclamationmark")
                         .font(.largeTitle)
@@ -117,8 +117,8 @@ struct DeviceListView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 8) {
-                        ForEach(discovery.devices) { device in
-                            DeviceCard(device: device) {
+                        ForEach(discovery.deviceGroups) { group in
+                            DeviceCard(group: group) { device in
                                 onConnect(device)
                             }
                         }
@@ -145,16 +145,37 @@ struct DeviceListView: View {
     private func connectWiFi(reason: String? = nil) async {
         let host = wifiHost.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty, !isWiFiBusy else { return }
+
+        // Validate IP format before attempting connection
+        let normalizedTarget = HDCCommand.wifiTarget(from: host)
+        let ipPart = normalizedTarget.components(separatedBy: ":").first ?? normalizedTarget
+
+        // Basic IPv4 validation
+        let ipComponents = ipPart.components(separatedBy: ".")
+        if ipComponents.count != 4 || !ipComponents.allSatisfy({ Int($0) != nil && (0...255).contains(Int($0)!) }) {
+            wifiStatus = "无效的 IP 地址格式: \(ipPart)"
+            return
+        }
+
         isWiFiBusy = true
-        wifiStatus = "\(reason ?? "正在连接") \(HDCCommand.wifiTarget(from: host)) ..."
+        wifiStatus = "\(reason ?? "正在连接") \(normalizedTarget) ..."
         defer { isWiFiBusy = false }
         do {
             let result = try await discovery.hdcCommand.connectWiFi(host: host)
-            wifiStatus = result.isEmpty ? "Wi-Fi 连接命令已发送" : result
+            wifiStatus = result.isEmpty ? "Wi-Fi 连接成功" : result
             discovery.rememberWiFiTarget(host)
             await discovery.poll()
         } catch {
-            wifiStatus = "Wi-Fi 连接失败：\(error.localizedDescription)"
+            let errorMsg = error.localizedDescription
+            if errorMsg.contains("IP address incorrect") {
+                wifiStatus = "IP 地址格式错误，请检查输入"
+            } else if errorMsg.contains("timeout") || errorMsg.contains("超时") {
+                wifiStatus = "连接超时，请确保设备与 Mac 在同一网络"
+            } else if errorMsg.contains("refused") || errorMsg.contains("拒绝") {
+                wifiStatus = "连接被拒绝，请确保设备已开启无线调试"
+            } else {
+                wifiStatus = "Wi-Fi 连接失败：\(errorMsg)"
+            }
         }
     }
 

@@ -23,12 +23,17 @@ struct HarmonyDevice: Identifiable, Hashable {
     var connectionKind: ConnectionKind = .unknown
     var formFactor: FormFactor = .unknown
     var model: String = ""
+    var hardwareModel: String = ""  // Hardware model code for cross-connection matching
     var endpoint: String?
 
     var displayName: String {
         if !model.isEmpty { return model }
         if !name.isEmpty && name != "HarmonyOS Device" { return name }
-        return formFactor == .unknown ? "HarmonyOS Device" : "HarmonyOS \(formFactor.rawValue)"
+        if formFactor != .unknown { return "HarmonyOS \(formFactor.rawValue)" }
+        // Fallback: show identifier so user can distinguish devices
+        if serial.contains(":") { return serial }
+        let suffix = String(serial.suffix(6))
+        return suffix.isEmpty ? serial : "USB ...\(suffix)"
     }
 
     var isWireless: Bool {
@@ -62,6 +67,41 @@ struct HarmonyDevice: Identifiable, Hashable {
     }
 }
 
+/// Merged view of one physical device that may be reachable via USB, Wi-Fi, or both.
+struct DeviceGroup: Identifiable {
+    /// Stable identity: USB serial (preferred) or Wi-Fi serial, stripped of port suffix
+    let id: String
+    var displayName: String = "HarmonyOS Device"
+    var formFactor: HarmonyDevice.FormFactor = .unknown
+    var model: String = ""
+    var screenWidth: Int = 0
+    var screenHeight: Int = 0
+    var orientationLabel: String? {
+        guard screenWidth > 0, screenHeight > 0 else { return nil }
+        return screenWidth >= screenHeight ? "横屏" : "竖屏"
+    }
+    var resolutionLabel: String? {
+        guard screenWidth > 0, screenHeight > 0 else { return nil }
+        return "\(screenWidth)x\(screenHeight)"
+    }
+    var usbDevice: HarmonyDevice?
+    var wifiDevice: HarmonyDevice?
+
+    var hasUSB: Bool { usbDevice != nil }
+    var hasWiFi: Bool { wifiDevice != nil }
+
+    /// Hardware model code shared across connections, e.g. "PLA-AL10"
+    var hardwareModel: String {
+        usbDevice?.hardwareModel ?? wifiDevice?.hardwareModel ?? ""
+    }
+
+    /// Preferred device to use for mirroring (USB first, then WiFi)
+    var preferredDevice: HarmonyDevice? { usbDevice ?? wifiDevice }
+
+    /// All available connections
+    var allDevices: [HarmonyDevice] { [usbDevice, wifiDevice].compactMap { $0 } }
+}
+
 struct HDCTarget: Hashable {
     let serial: String
     let transport: String
@@ -86,18 +126,20 @@ struct HDCTarget: Hashable {
 }
 
 struct DeviceProfile: Hashable {
-    var model: String = ""
+    var productModel: String = ""    // Hardware model code, e.g. "PLA-AL10"
+    var productName: String = ""     // Product name, e.g. "HUAWEI Mate 70 Pro+"
     var deviceType: String = ""
-    var userName: String = ""
+    var userName: String = ""        // Bluetooth name / device name
 
     var displayModel: String {
         if !userName.isEmpty { return userName }
-        if !model.isEmpty { return model }
+        if !productName.isEmpty { return productName }
+        if !productModel.isEmpty { return productModel }
         return deviceType
     }
 
     var formFactor: HarmonyDevice.FormFactor {
-        let lower = "\(model) \(deviceType)".lowercased()
+        let lower = "\(productModel) \(productName) \(deviceType)".lowercased()
         if lower.contains("pad") || lower.contains("tablet") {
             return .tablet
         }

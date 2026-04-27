@@ -11,10 +11,146 @@ final class DeviceDiscovery: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var lastLANScan = Date.distantPast
     private var deviceProfiles: [String: DeviceProfile] = [:]
+    private var profileFetchFailedAt: [String: Date] = [:]
+    private var displaySizeCache: [String: CGSize] = [:]
     private var failedLANTargets: [String: Date] = [:]
+    private var deviceMissCount: [String: Int] = [:]
+    private let maxMissBeforeRemoval = 3
     private var knownWiFiTargets: [String] {
         get { UserDefaults.standard.stringArray(forKey: "HarmonyMirror_knownWiFiTargets") ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: "HarmonyMirror_knownWiFiTargets") }
+    }
+
+    /// Devices merged by physical identity — one card per physical device with USB/WiFi buttons
+    var deviceGroups: [DeviceGroup] {
+        var groups: [DeviceGroup] = []
+        var matchedWiFi = Set<String>()
+
+        let usbCount = devices.filter { !$0.serial.contains(":") }.count
+        let wifiCount = devices.filter { $0.serial.contains(":") }.count
+
+        for device in devices {
+            let isWiFi = device.serial.contains(":")
+            if isWiFi { continue }  // process WiFi after USB
+            // USB device — try to find matching WiFi entry
+            let wifiMatch = devices.first { candidate in
+                guard candidate.serial.contains(":"), !matchedWiFi.contains(candidate.serial) else {
+                    return false
+                }
+                // Only one USB and one WiFi — assume same device UNLESS
+                // both have known but different hardware models
+                if usbCount == 1, wifiCount == 1 {
+                    if !candidate.hardwareModel.isEmpty, !device.hardwareModel.isEmpty,
+                       candidate.hardwareModel != device.hardwareModel {
+                        return false
+                    }
+                    return true
+                }
+                // Hardware model code match (most reliable, consistent across connection types)
+                if !candidate.hardwareModel.isEmpty, !device.hardwareModel.isEmpty,
+                   candidate.hardwareModel == device.hardwareModel {
+                    return true
+                }
+                // Display model match
+                if !candidate.model.isEmpty, !device.model.isEmpty, candidate.model == device.model {
+                    return true
+                }
+                // Same display name
+                if candidate.displayName == device.displayName {
+                    return true
+                }
+                // Same form factor (both known)
+                if candidate.formFactor != .unknown, device.formFactor != .unknown,
+                   candidate.formFactor == device.formFactor {
+                    return true
+                }
+                // Same screen resolution (if known)
+                if candidate.screenWidth > 0, device.screenWidth > 0,
+                   candidate.screenWidth == device.screenWidth,
+                   candidate.screenHeight == device.screenHeight {
+                    return true
+                }
+                return false
+            }
+            if let wifi = wifiMatch {
+                matchedWiFi.insert(wifi.serial)
+            }
+            groups.append(DeviceGroup(
+                id: device.id,
+                displayName: device.displayName,
+                formFactor: device.formFactor,
+                model: device.model,
+                screenWidth: max(device.screenWidth, wifiMatch?.screenWidth ?? 0),
+                screenHeight: max(device.screenHeight, wifiMatch?.screenHeight ?? 0),
+                usbDevice: device,
+                wifiDevice: wifiMatch
+            ))
+        }
+        // Fallback: if exactly one unmatched WiFi device remains, merge with an unmatched USB group
+        let unmatchedWiFi = devices.filter { $0.serial.contains(":") && !matchedWiFi.contains($0.serial) }
+        if unmatchedWiFi.count == 1 {
+            let wifi = unmatchedWiFi[0]
+            if let usbIdx = groups.firstIndex(where: { $0.wifiDevice == nil }) {
+                var merged = groups[usbIdx]
+                groups[usbIdx] = DeviceGroup(
+                    id: merged.id,
+                    displayName: merged.displayName.isEmpty || merged.displayName == "HarmonyOS Device" ? wifi.displayName : merged.displayName,
+                    formFactor: merged.formFactor == .unknown ? wifi.formFactor : merged.formFactor,
+                    model: merged.model.isEmpty ? wifi.model : merged.model,
+                    screenWidth: max(merged.screenWidth, wifi.screenWidth),
+                    screenHeight: max(merged.screenHeight, wifi.screenHeight),
+                    usbDevice: merged.usbDevice,
+                    wifiDevice: wifi
+                )
+                matchedWiFi.insert(wifi.serial)
+            }
+        }
+
+        // Remaining WiFi-only devices (no USB match).
+        // Merge WiFi entries that share the same hardwareModel — a device with
+        // multiple IPs (e.g. 10.x and 192.168.x) is still one physical device.
+        for device in devices where device.serial.contains(":") && !matchedWiFi.contains(device.serial) {
+            if let existingIdx = groups.firstIndex(where: { group in
+                if !device.hardwareModel.isEmpty, !group.hardwareModel.isEmpty,
+                   device.hardwareModel == group.hardwareModel {
+                    return true
+                }
+                if !device.model.isEmpty, !group.model.isEmpty, device.model == group.model {
+                    return true
+                }
+                return false
+            }) {
+                // Merge into existing group — keep the WiFi with the shorter serial
+                // (usually the primary IP) as the preferred WiFi device
+                var existing = groups[existingIdx]
+                if existing.wifiDevice == nil {
+                    existing = DeviceGroup(
+                        id: existing.id,
+                        displayName: existing.displayName,
+                        formFactor: existing.formFactor,
+                        model: existing.model,
+                        screenWidth: max(existing.screenWidth, device.screenWidth),
+                        screenHeight: max(existing.screenHeight, device.screenHeight),
+                        usbDevice: existing.usbDevice,
+                        wifiDevice: device
+                    )
+                }
+                groups[existingIdx] = existing
+                matchedWiFi.insert(device.serial)
+            } else {
+                groups.append(DeviceGroup(
+                    id: device.id,
+                    displayName: device.displayName,
+                    formFactor: device.formFactor,
+                    model: device.model,
+                    screenWidth: device.screenWidth,
+                    screenHeight: device.screenHeight,
+                    usbDevice: nil,
+                    wifiDevice: device
+                ))
+            }
+        }
+        return groups
     }
 
     init(hdcCommand: HDCCommand) {
@@ -46,23 +182,61 @@ final class DeviceDiscovery: ObservableObject {
     func poll() async {
         do {
             let targets = try await hdcCommand.listTargetDetails()
-            await updateDevices(from: targets.filter(\.isConnected))
+            await updateDevices(from: targets.filter(\.isConnected), merge: false)
+
+            // Auto-reconnect known WiFi devices if they disappeared
+            let currentSerials = Set(devices.map(\.serial))
+            let missingKnownTargets = knownWiFiTargets.filter { !currentSerials.contains($0) }
+            if !missingKnownTargets.isEmpty {
+                await reconnectKnownDevices(missingKnownTargets)
+                let refreshedTargets = try await hdcCommand.listTargetDetails()
+                await updateDevices(from: refreshedTargets.filter(\.isConnected), merge: true)
+            }
 
             if shouldScanLAN {
                 await discoverLANDevices()
                 let refreshedTargets = try await hdcCommand.listTargetDetails()
-                await updateDevices(from: refreshedTargets.filter(\.isConnected))
+                // Merge new WiFi targets with existing USB devices — don't overwrite
+                await updateDevices(from: refreshedTargets.filter(\.isConnected), merge: true)
             }
         } catch {
             Log.hdc.error("Device poll failed: \(error.localizedDescription)")
         }
     }
 
-    private func updateDevices(from connectedTargets: [HDCTarget]) async {
-        var newDevices: [HarmonyDevice] = []
+    private func reconnectKnownDevices(_ targets: [String]) async {
+        for target in targets {
+            // Skip if recently failed
+            if let failedAt = failedLANTargets[target],
+               Date().timeIntervalSince(failedAt) < 30 {
+                continue
+            }
 
+            do {
+                _ = try await hdcCommand.connectWiFi(host: target)
+                failedLANTargets[target] = nil
+                Log.hdc.info("Auto-reconnected known device: \(target)")
+            } catch {
+                failedLANTargets[target] = Date()
+                Log.hdc.error("Failed to reconnect \(target): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func updateDevices(from connectedTargets: [HDCTarget], merge: Bool) async {
+        // Profiles are cached, sequential lookup is fast
+        var profiles: [(HDCTarget, DeviceProfile)] = []
         for target in connectedTargets {
-            let profile = await profile(for: target.serial)
+            let profile = await self.profile(for: target.serial)
+            profiles.append((target, profile))
+        }
+
+        // Fetch display sizes concurrently (each is an hdc shell call)
+        let serials = connectedTargets.map(\.serial)
+        let displaySizes = await fetchDisplaySizesConcurrently(serials: serials)
+
+        var newDevices: [HarmonyDevice] = []
+        for (target, profile) in profiles {
             var device = HarmonyDevice(
                 id: target.serial,
                 serial: target.serial,
@@ -70,9 +244,10 @@ final class DeviceDiscovery: ObservableObject {
                 connectionKind: target.connectionKind,
                 formFactor: profile.formFactor,
                 model: profile.displayModel,
+                hardwareModel: profile.productModel,
                 endpoint: target.endpoint
             )
-            if let displaySize = try? await hdcCommand.displaySize(serial: target.serial) {
+            if let displaySize = displaySizes[target.serial] {
                 let width = Int(displaySize.width)
                 let height = Int(displaySize.height)
                 if width > 0, height > 0 {
@@ -91,22 +266,200 @@ final class DeviceDiscovery: ObservableObject {
             newDevices.append(device)
         }
 
+        // Cross-reference: unify profiles between USB and WiFi for the same device
+        let usbDevices = newDevices.filter { !$0.serial.contains(":") }
+        var wifiDevices = newDevices.filter { $0.serial.contains(":") }
+        // Build profile data lookup: serial → DeviceProfile
+        var profileBySerial: [String: DeviceProfile] = [:]
+        for (target, profileData) in profiles {
+            profileBySerial[target.serial] = profileData
+        }
+
+        for i in 0..<wifiDevices.count {
+            let wifi = wifiDevices[i]
+            let wifiProfile = profileBySerial[wifi.serial]
+            // Find USB device with matching profile data (same productName, deviceType, or btName)
+            let usbMatch = usbDevices.first { usb in
+                let up = profileBySerial[usb.serial]
+                // Same hardware model code (most reliable, consistent across connection types)
+                if !wifi.hardwareModel.isEmpty, !usb.hardwareModel.isEmpty,
+                   wifi.hardwareModel == usb.hardwareModel { return true }
+                // Same product model from param get
+                if let wp = wifiProfile, let u = up,
+                   !wp.productModel.isEmpty, !u.productModel.isEmpty,
+                   wp.productModel == u.productModel { return true }
+                // Same device type
+                if let wp = wifiProfile, let u = up,
+                   !wp.deviceType.isEmpty, !u.deviceType.isEmpty,
+                   wp.deviceType == u.deviceType { return true }
+                // Same screen size (known for both)
+                if usb.screenWidth > 0, wifi.screenWidth > 0,
+                   usb.screenWidth == wifi.screenWidth,
+                   usb.screenHeight == wifi.screenHeight { return true }
+                // Same form factor (both known)
+                if usb.formFactor != .unknown, wifi.formFactor != .unknown,
+                   usb.formFactor == wifi.formFactor { return true }
+                // Only one USB and one WiFi — assume same device UNLESS
+                // both have known but different hardware models
+                if usbDevices.count == 1 && wifiDevices.count == 1 {
+                    if !wifi.hardwareModel.isEmpty, !usb.hardwareModel.isEmpty,
+                       wifi.hardwareModel != usb.hardwareModel {
+                        return false
+                    }
+                    return true
+                }
+                return false
+            }
+            guard let usb = usbMatch else { continue }
+
+            // Pick the best display name across both connections.
+            // Priority: userName (3) > productName (2) > productModel (1) > deviceType (0).
+            // This ensures USB and WiFi show the same name for the same physical device.
+            let usbProfile = profileBySerial[usb.serial]
+            let wifiProf = profileBySerial[wifi.serial]
+            let usbNamePrio = Self.displayNamePriority(model: usb.model, profile: usbProfile)
+            let wifiNamePrio = Self.displayNamePriority(model: wifiDevices[i].model, profile: wifiProf)
+            if usbNamePrio > wifiNamePrio {
+                wifiDevices[i].model = usb.model
+            } else if wifiNamePrio > usbNamePrio,
+                      let usbIdx = newDevices.firstIndex(where: { $0.serial == usb.serial }) {
+                newDevices[usbIdx].model = wifiDevices[i].model
+            } else if usbNamePrio == wifiNamePrio, !usb.model.isEmpty, wifiDevices[i].model.isEmpty {
+                wifiDevices[i].model = usb.model
+            } else if usbNamePrio == wifiNamePrio, usb.model.isEmpty, !wifiDevices[i].model.isEmpty,
+                      let usbIdx = newDevices.firstIndex(where: { $0.serial == usb.serial }) {
+                newDevices[usbIdx].model = wifiDevices[i].model
+            }
+            if wifiDevices[i].hardwareModel.isEmpty, !usb.hardwareModel.isEmpty {
+                wifiDevices[i].hardwareModel = usb.hardwareModel
+            }
+            if usb.hardwareModel.isEmpty, wifi.hardwareModel.isEmpty == false,
+               let usbIdx = newDevices.firstIndex(where: { $0.serial == usb.serial }) {
+                newDevices[usbIdx].hardwareModel = wifi.hardwareModel
+            }
+            if wifi.screenWidth == 0, usb.screenWidth > 0 {
+                wifiDevices[i].screenWidth = usb.screenWidth
+                wifiDevices[i].screenHeight = usb.screenHeight
+            }
+            if usb.screenWidth == 0, wifi.screenWidth > 0,
+               let usbIdx = newDevices.firstIndex(where: { $0.serial == usb.serial }) {
+                newDevices[usbIdx].screenWidth = wifi.screenWidth
+                newDevices[usbIdx].screenHeight = wifi.screenHeight
+            }
+            if wifiDevices[i].formFactor == .unknown, usb.formFactor != .unknown {
+                wifiDevices[i].formFactor = usb.formFactor
+            }
+            if usb.formFactor == .unknown, wifi.formFactor != .unknown,
+               let usbIdx = newDevices.firstIndex(where: { $0.serial == usb.serial }) {
+                newDevices[usbIdx].formFactor = wifi.formFactor
+            }
+        }
+        // Write back updated WiFi devices
+        for updated in wifiDevices {
+            if let idx = newDevices.firstIndex(where: { $0.serial == updated.serial }) {
+                newDevices[idx] = updated
+            }
+        }
+
+        if merge {
+            // Preserve existing USB devices that the refreshed scan missed (e.g. during WiFi discovery)
+            let newSerials = Set(newDevices.map(\.serial))
+            for existing in devices where !existing.serial.contains(":") && !newSerials.contains(existing.serial) {
+                newDevices.append(existing)
+            }
+        }
+
+        // Debounce: retain devices that disappeared in this poll but were recently seen.
+        // This prevents USB devices from flickering when hdc list targets is intermittently slow.
+        let newSerials = Set(newDevices.map(\.serial))
+        for serial in newSerials {
+            deviceMissCount[serial] = 0
+        }
+        var retained: [HarmonyDevice] = []
+        for existing in devices where !newSerials.contains(existing.serial) {
+            let misses = (deviceMissCount[existing.serial] ?? 0) + 1
+            deviceMissCount[existing.serial] = misses
+            if misses < maxMissBeforeRemoval {
+                retained.append(existing)
+            }
+        }
+        for serial in deviceMissCount.keys where (deviceMissCount[serial] ?? 0) >= maxMissBeforeRemoval {
+            deviceMissCount.removeValue(forKey: serial)
+        }
+        newDevices.append(contentsOf: retained)
+
         if newDevices != devices {
             devices = newDevices
         }
     }
 
+    private func fetchDisplaySizesConcurrently(serials: [String]) async -> [String: CGSize] {
+        var results: [String: CGSize] = [:]
+        var uncached: [String] = []
+        for serial in serials {
+            if let cached = displaySizeCache[serial] {
+                results[serial] = cached
+            } else {
+                uncached.append(serial)
+            }
+        }
+        guard !uncached.isEmpty else { return results }
+
+        return await withTaskGroup(of: (String, CGSize?).self) { group in
+            for serial in uncached {
+                group.addTask {
+                    let size = try? await self.hdcCommand.displaySize(serial: serial)
+                    return (serial, size)
+                }
+            }
+            for await (serial, size) in group {
+                if let size {
+                    results[serial] = size
+                    displaySizeCache[serial] = size
+                }
+            }
+            return results
+        }
+    }
+
     private var shouldScanLAN: Bool {
-        Date().timeIntervalSince(lastLANScan) >= AppConstants.lanDiscoveryInterval
+        // Disable LAN scanning - it's too resource intensive and causes UI lag
+        // Users should manually connect via IP input instead
+        return false
+        // Original: Date().timeIntervalSince(lastLANScan) >= AppConstants.lanDiscoveryInterval
     }
 
     private func profile(for serial: String) async -> DeviceProfile {
         if let cached = deviceProfiles[serial] {
             return cached
         }
+        // Cooldown: if a previous fetch failed, don't retry for 30 s.
+        // Retrying on every poll overwhelms the USB shell channel.
+        if let failedAt = profileFetchFailedAt[serial],
+           Date().timeIntervalSince(failedAt) < 30 {
+            return DeviceProfile()
+        }
         let profile = await hdcCommand.deviceProfile(serial: serial)
-        deviceProfiles[serial] = profile
+        let gotData = !profile.productModel.isEmpty
+            || !profile.productName.isEmpty
+            || !profile.userName.isEmpty
+        if gotData {
+            deviceProfiles[serial] = profile
+            profileFetchFailedAt.removeValue(forKey: serial)
+        } else {
+            profileFetchFailedAt[serial] = Date()
+        }
         return profile
+    }
+
+    /// Returns the source priority of a display name for cross-connection comparison.
+    /// Higher = better: userName (3) > productName (2) > productModel (1) > deviceType/other (0).
+    private static func displayNamePriority(model: String, profile: DeviceProfile?) -> Int {
+        guard !model.isEmpty, let profile else { return 0 }
+        if !profile.userName.isEmpty, model == profile.userName { return 3 }
+        if !profile.productName.isEmpty, model == profile.productName { return 2 }
+        if !profile.productModel.isEmpty, model == profile.productModel { return 1 }
+        return model.isEmpty ? 0 : 1
     }
 
     private func discoverLANDevices() async {
