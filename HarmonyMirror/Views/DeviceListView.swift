@@ -9,6 +9,8 @@ struct DeviceListView: View {
     @State private var isDiagnosingNetwork = false
     @State private var networkDiagnosticText = ""
     @State private var didAutoRecoverWiFi = false
+    @State private var cleaningAgentSerials: Set<String> = []
+    @State private var agentCleanupStatus = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,6 +74,12 @@ struct DeviceListView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(4)
                 }
+                if !agentCleanupStatus.isEmpty {
+                    Text(agentCleanupStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                }
                 if !discovery.discoveryStatus.isEmpty {
                     HStack(spacing: 6) {
                         if discovery.isScanningLAN {
@@ -118,9 +126,16 @@ struct DeviceListView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(discovery.deviceGroups) { group in
-                            DeviceCard(group: group) { device in
-                                onConnect(device)
-                            }
+                            DeviceCard(
+                                group: group,
+                                onConnect: { device in
+                                    onConnect(device)
+                                },
+                                onCleanupAgent: { device in
+                                    Task { await cleanupAgent(on: device) }
+                                },
+                                cleaningSerials: cleaningAgentSerials
+                            )
                         }
                     }
                     .padding(.horizontal)
@@ -204,6 +219,21 @@ struct DeviceListView: View {
         defer { isDiagnosingNetwork = false }
         let result = await NetworkDiagnostics.run(targetInput: wifiHost)
         networkDiagnosticText = result.displayText
+    }
+
+    private func cleanupAgent(on device: HarmonyDevice) async {
+        guard !cleaningAgentSerials.contains(device.serial) else { return }
+        cleaningAgentSerials.insert(device.serial)
+        agentCleanupStatus = "正在清理 \(device.displayName) 的移动端 Agent..."
+        defer { cleaningAgentSerials.remove(device.serial) }
+
+        do {
+            let result = try await discovery.hdcCommand.cleanupHarmonyAgent(serial: device.serial)
+            agentCleanupStatus = "\(device.displayName)：\(result)"
+            await discovery.poll()
+        } catch {
+            agentCleanupStatus = "\(device.displayName)：清理失败，\(error.localizedDescription)"
+        }
     }
 
     private var usbDevice: HarmonyDevice? {

@@ -3,6 +3,8 @@ import SwiftUI
 struct DeviceCard: View {
     let group: DeviceGroup
     let onConnect: (HarmonyDevice) -> Void
+    let onCleanupAgent: (HarmonyDevice) -> Void
+    let cleaningSerials: Set<String>
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,6 +68,21 @@ struct DeviceCard: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
+
+            if let device = group.preferredDevice {
+                Button {
+                    onCleanupAgent(device)
+                } label: {
+                    Label(cleaningSerials.contains(device.serial) ? "清理中..." : "清理移动端 Agent", systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(cleaningSerials.contains(device.serial))
+                .help("停止并删除 \(group.displayName) 上的 HarmonyAgent")
+                .padding(.horizontal, 10)
+                .padding(.bottom, 10)
+            }
         }
         .background(.background)
         .cornerRadius(8)

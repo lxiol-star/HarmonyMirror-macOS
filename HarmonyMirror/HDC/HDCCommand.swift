@@ -250,6 +250,43 @@ final class HDCCommand {
         _ = try? await execute(args)
     }
 
+    func cleanupHarmonyAgent(serial: String) async throws -> String {
+        _ = try? await shell("killall harmony_agent", serial: serial)
+        try? await Task.sleep(for: .milliseconds(200))
+
+        if let pidOutput = try? await shell("pidof harmony_agent", serial: serial) {
+            let pids = pidOutput
+                .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
+                .compactMap { Int($0) }
+            if !pids.isEmpty {
+                _ = try? await shell("kill -9 \(pids.map(String.init).joined(separator: " "))", serial: serial)
+            }
+        }
+
+        let cleanupPaths = [
+            "/data/local/tmp/harmony_agent",
+            "/data/local/tmp/harmony_agent.log",
+            "/data/local/tmp/nohup.out",
+            AppConstants.remoteScreenPath
+        ]
+        _ = try await shell("rm -f \(cleanupPaths.joined(separator: " "))", serial: serial)
+
+        let removedForwards = await cleanupAgentForwards(serial: serial)
+        let remainingAgent = (try? await shell("find /data/local/tmp -maxdepth 1 -name '*harmony_agent*'", serial: serial))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let remainingPid = (try? await shell("pidof harmony_agent", serial: serial))?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !remainingPid.isEmpty || !remainingAgent.isEmpty {
+            var leftovers: [String] = []
+            if !remainingPid.isEmpty { leftovers.append("进程仍存在: \(remainingPid)") }
+            if !remainingAgent.isEmpty { leftovers.append("文件仍存在: \(remainingAgent)") }
+            throw MirrorError.commandFailed(leftovers.joined(separator: "；"))
+        }
+
+        return removedForwards > 0 ? "已清理 Agent，并移除 \(removedForwards) 条端口转发" : "已清理 Agent"
+    }
+
     func shell(_ command: String, serial: String? = nil) async throws -> String {
         var args: [String] = []
         if let serial { args += ["-t", serial] }
@@ -410,6 +447,22 @@ final class HDCCommand {
 
         // If invalid, return original (will fail later with proper error)
         return input
+    }
+
+    private func cleanupAgentForwards(serial: String) async -> Int {
+        var removed = 0
+        guard let output = try? await execute(["-t", serial, "fport", "ls"]) else { return removed }
+        for line in output.components(separatedBy: "\n") {
+            let columns = line
+                .split(whereSeparator: { $0 == " " || $0 == "\t" })
+                .map(String.init)
+            guard columns.count >= 2, line.contains("tcp:\(AppConstants.agentRemotePort)") else { continue }
+            let local = columns[0]
+            let remote = columns[1]
+            _ = try? await execute(["-t", serial, "fport", "rm", local, remote])
+            removed += 1
+        }
+        return removed
     }
 
     private func execute(_ arguments: [String]) async throws -> String {
